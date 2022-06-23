@@ -1,10 +1,8 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
-import {Errors} from '../libraries/helpers/Errors.sol';
 import {IPool} from '../../interfaces/IPool.sol';
 import {IDelegationToken} from '../../interfaces/IDelegationToken.sol';
-import {IACLManager} from '../../interfaces/IACLManager.sol';
 import {AToken} from './AToken.sol';
 
 /**
@@ -14,7 +12,19 @@ import {AToken} from './AToken.sol';
  * @dev The underlying asset needs to be compatible with the COMP delegation interface
  */
 contract DelegationAwareAToken is AToken {
-  constructor(IPool pool) AToken(pool) {}
+  /**
+   * @dev Emitted when underlying voting power is delegated
+   * @param delegatee The address of the delegatee
+   */
+  event DelegateUnderlyingTo(address indexed delegatee);
+
+  /**
+   * @dev Constructor.
+   * @param pool The address of the Pool contract
+   */
+  constructor(IPool pool) AToken(pool) {
+    // Intentionally left blank
+  }
 
   /**
    * @notice Delegates voting power of the underlying asset to a `delegatee` address
@@ -22,5 +32,6 @@ contract DelegationAwareAToken is AToken {
    **/
   function delegateUnderlyingTo(address delegatee) external onlyPoolAdmin {
     IDelegationToken(_underlyingAsset).delegate(delegatee);
+    emit DelegateUnderlyingTo(delegatee);
   }
 }

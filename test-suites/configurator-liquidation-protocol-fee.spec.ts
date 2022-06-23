@@ -5,7 +5,7 @@ import { ProtocolErrors } from '../helpers/types';
 import { TestEnv, makeSuite } from './helpers/make-suite';
 
 makeSuite('PoolConfigurator: Liquidation Protocol Fee', (testEnv: TestEnv) => {
-  const { RC_INVALID_LIQUIDATION_PROTOCOL_FEE } = ProtocolErrors;
+  const { INVALID_LIQUIDATION_PROTOCOL_FEE } = ProtocolErrors;
 
   before(async () => {
     const { weth, pool, dai, usdc } = testEnv;
@@ -23,24 +23,33 @@ makeSuite('PoolConfigurator: Liquidation Protocol Fee', (testEnv: TestEnv) => {
   it('Reserves should initially have protocol liquidation fee set to 0', async () => {
     const { dai, usdc, helpersContract } = testEnv;
 
-    let usdcLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(usdc.address);
-    let daiLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(dai.address);
+    const usdcLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(
+      usdc.address
+    );
+    const daiLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(dai.address);
 
     expect(usdcLiquidationProtocolFee).to.be.equal('0');
     expect(daiLiquidationProtocolFee).to.be.equal('0');
   });
 
-  it('Sets the protocol liquidation fee to 1000 (10.00co%)', async () => {
+  it('Sets the protocol liquidation fee to 1000 (10.00%)', async () => {
     const { configurator, dai, usdc, helpersContract } = testEnv;
+
+    const oldUsdcLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(
+      usdc.address
+    );
+    const oldDaiLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(
+      dai.address
+    );
 
     const liquidationProtocolFee = 1000;
 
     expect(await configurator.setLiquidationProtocolFee(usdc.address, liquidationProtocolFee))
       .to.emit(configurator, 'LiquidationProtocolFeeChanged')
-      .withArgs(usdc.address, liquidationProtocolFee);
+      .withArgs(usdc.address, oldUsdcLiquidationProtocolFee, liquidationProtocolFee);
     expect(await configurator.setLiquidationProtocolFee(dai.address, liquidationProtocolFee))
       .to.emit(configurator, 'LiquidationProtocolFeeChanged')
-      .withArgs(dai.address, liquidationProtocolFee);
+      .withArgs(dai.address, oldDaiLiquidationProtocolFee, liquidationProtocolFee);
 
     const usdcLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(
       usdc.address
@@ -51,16 +60,44 @@ makeSuite('PoolConfigurator: Liquidation Protocol Fee', (testEnv: TestEnv) => {
     expect(daiLiquidationProtocolFee).to.be.equal(liquidationProtocolFee);
   });
 
-  it('Tries to set the protocol liquidation fee to 10001 and reverts', async () => {
+  it('Sets the protocol liquidation fee to 10000 (100.00%) equal to PERCENTAGE_FACTOR', async () => {
+    const { configurator, dai, usdc, helpersContract } = testEnv;
+
+    const oldUsdcLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(
+      usdc.address
+    );
+    const oldDaiLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(
+      dai.address
+    );
+
+    const liquidationProtocolFee = 10000;
+
+    expect(await configurator.setLiquidationProtocolFee(usdc.address, liquidationProtocolFee))
+      .to.emit(configurator, 'LiquidationProtocolFeeChanged')
+      .withArgs(usdc.address, oldUsdcLiquidationProtocolFee, liquidationProtocolFee);
+    expect(await configurator.setLiquidationProtocolFee(dai.address, liquidationProtocolFee))
+      .to.emit(configurator, 'LiquidationProtocolFeeChanged')
+      .withArgs(dai.address, oldDaiLiquidationProtocolFee, liquidationProtocolFee);
+
+    const usdcLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(
+      usdc.address
+    );
+    const daiLiquidationProtocolFee = await helpersContract.getLiquidationProtocolFee(dai.address);
+
+    expect(usdcLiquidationProtocolFee).to.be.equal(liquidationProtocolFee);
+    expect(daiLiquidationProtocolFee).to.be.equal(liquidationProtocolFee);
+  });
+
+  it('Tries to set the protocol liquidation fee to 10001 (100.01%) > PERCENTAGE_FACTOR (revert expected)', async () => {
     const { configurator, dai, usdc } = testEnv;
 
     const liquidationProtocolFee = 10001;
 
     expect(
       configurator.setLiquidationProtocolFee(usdc.address, liquidationProtocolFee)
-    ).to.be.revertedWith(RC_INVALID_LIQUIDATION_PROTOCOL_FEE);
+    ).to.be.revertedWith(INVALID_LIQUIDATION_PROTOCOL_FEE);
     expect(
       configurator.setLiquidationProtocolFee(dai.address, liquidationProtocolFee)
-    ).to.be.revertedWith(RC_INVALID_LIQUIDATION_PROTOCOL_FEE);
+    ).to.be.revertedWith(INVALID_LIQUIDATION_PROTOCOL_FEE);
   });
 });

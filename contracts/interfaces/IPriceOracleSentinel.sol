@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.10;
 
 import {IPoolAddressesProvider} from './IPoolAddressesProvider.sol';
-import {ISequencerOracle} from './ISequencerOracle.sol';
 
 /**
  * @title IPriceOracleSentinel
@@ -11,13 +10,13 @@ import {ISequencerOracle} from './ISequencerOracle.sol';
  */
 interface IPriceOracleSentinel {
   /**
-   * @notice Emitted after the sequencer oracle is updated
+   * @dev Emitted after the sequencer oracle is updated
    * @param newSequencerOracle The new sequencer oracle
    */
   event SequencerOracleUpdated(address newSequencerOracle);
 
   /**
-   * @notice Emitted after the grace period is updated
+   * @dev Emitted after the grace period is updated
    * @param newGracePeriod The new grace period value
    */
   event GracePeriodUpdated(uint256 newGracePeriod);

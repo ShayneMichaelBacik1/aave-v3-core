@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
 import {Errors} from '../helpers/Errors.sol';
@@ -30,10 +30,13 @@ library UserConfiguration {
     bool borrowing
   ) internal {
     unchecked {
-      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.UL_INVALID_INDEX);
-      self.data =
-        (self.data & ~(1 << (reserveIndex * 2))) |
-        (uint256(borrowing ? 1 : 0) << (reserveIndex * 2));
+      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.INVALID_RESERVE_INDEX);
+      uint256 bit = 1 << (reserveIndex << 1);
+      if (borrowing) {
+        self.data |= bit;
+      } else {
+        self.data &= ~bit;
+      }
     }
   }
 
@@ -41,7 +44,7 @@ library UserConfiguration {
    * @notice Sets if the user is using as collateral the reserve identified by reserveIndex
    * @param self The configuration object
    * @param reserveIndex The index of the reserve in the bitmap
-   * @param usingAsCollateral True if the user is usin the reserve as collateral, false otherwise
+   * @param usingAsCollateral True if the user is using the reserve as collateral, false otherwise
    **/
   function setUsingAsCollateral(
     DataTypes.UserConfigurationMap storage self,
@@ -49,10 +52,13 @@ library UserConfiguration {
     bool usingAsCollateral
   ) internal {
     unchecked {
-      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.UL_INVALID_INDEX);
-      self.data =
-        (self.data & ~(1 << (reserveIndex * 2 + 1))) |
-        (uint256(usingAsCollateral ? 1 : 0) << (reserveIndex * 2 + 1));
+      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.INVALID_RESERVE_INDEX);
+      uint256 bit = 1 << ((reserveIndex << 1) + 1);
+      if (usingAsCollateral) {
+        self.data |= bit;
+      } else {
+        self.data &= ~bit;
+      }
     }
   }
 
@@ -67,8 +73,8 @@ library UserConfiguration {
     uint256 reserveIndex
   ) internal pure returns (bool) {
     unchecked {
-      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.UL_INVALID_INDEX);
-      return (self.data >> (reserveIndex * 2)) & 3 != 0;
+      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.INVALID_RESERVE_INDEX);
+      return (self.data >> (reserveIndex << 1)) & 3 != 0;
     }
   }
 
@@ -84,8 +90,8 @@ library UserConfiguration {
     returns (bool)
   {
     unchecked {
-      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.UL_INVALID_INDEX);
-      return (self.data >> (reserveIndex * 2)) & 1 != 0;
+      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.INVALID_RESERVE_INDEX);
+      return (self.data >> (reserveIndex << 1)) & 1 != 0;
     }
   }
 
@@ -101,8 +107,8 @@ library UserConfiguration {
     returns (bool)
   {
     unchecked {
-      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.UL_INVALID_INDEX);
-      return (self.data >> (reserveIndex * 2 + 1)) & 1 != 0;
+      require(reserveIndex < ReserveConfiguration.MAX_RESERVES_COUNT, Errors.INVALID_RESERVE_INDEX);
+      return (self.data >> ((reserveIndex << 1) + 1)) & 1 != 0;
     }
   }
 
@@ -118,7 +124,7 @@ library UserConfiguration {
     returns (bool)
   {
     uint256 collateralData = self.data & COLLATERAL_MASK;
-    return collateralData > 0 && (collateralData & (collateralData - 1) == 0);
+    return collateralData != 0 && (collateralData & (collateralData - 1) == 0);
   }
 
   /**
@@ -146,7 +152,7 @@ library UserConfiguration {
   /**
    * @notice Checks if a user has not been using any reserve for borrowing or supply
    * @param self The configuration object
-   * @return True if the user has been borrowing any reserve, false otherwise
+   * @return True if the user has not been borrowing or supplying any reserve, false otherwise
    **/
   function isEmpty(DataTypes.UserConfigurationMap memory self) internal pure returns (bool) {
     return self.data == 0;
@@ -155,8 +161,8 @@ library UserConfiguration {
   /**
    * @notice Returns the Isolation Mode state of the user
    * @param self The configuration object
-   * @param reservesData The data of all the reserves
-   * @param reservesList The reserve list
+   * @param reservesData The state of all the reserves
+   * @param reservesList The addresses of all the active reserves
    * @return True if the user is in isolation mode, false otherwise
    * @return The address of the only asset used as collateral
    * @return The debt ceiling of the reserve
@@ -174,15 +180,12 @@ library UserConfiguration {
       uint256
     )
   {
-    if (!isUsingAsCollateralAny(self)) {
-      return (false, address(0), 0);
-    }
     if (isUsingAsCollateralOne(self)) {
       uint256 assetId = _getFirstAssetAsCollateralId(self);
 
       address assetAddress = reservesList[assetId];
       uint256 ceiling = reservesData[assetAddress].configuration.getDebtCeiling();
-      if (ceiling > 0) {
+      if (ceiling != 0) {
         return (true, assetAddress, ceiling);
       }
     }
@@ -204,7 +207,7 @@ library UserConfiguration {
       uint256 firstCollateralPosition = collateralData & ~(collateralData - 1);
       uint256 id;
 
-      while ((firstCollateralPosition >>= 2) > 0) {
+      while ((firstCollateralPosition >>= 2) != 0) {
         id += 1;
       }
       return id;

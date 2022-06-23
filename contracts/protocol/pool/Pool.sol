@@ -1,30 +1,23 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {Address} from '../../dependencies/openzeppelin/contracts/Address.sol';
 import {VersionedInitializable} from '../libraries/aave-upgradeability/VersionedInitializable.sol';
 import {Errors} from '../libraries/helpers/Errors.sol';
-import {WadRayMath} from '../libraries/math/WadRayMath.sol';
+import {ReserveConfiguration} from '../libraries/configuration/ReserveConfiguration.sol';
+import {PoolLogic} from '../libraries/logic/PoolLogic.sol';
 import {ReserveLogic} from '../libraries/logic/ReserveLogic.sol';
-import {GenericLogic} from '../libraries/logic/GenericLogic.sol';
-import {ValidationLogic} from '../libraries/logic/ValidationLogic.sol';
 import {EModeLogic} from '../libraries/logic/EModeLogic.sol';
 import {SupplyLogic} from '../libraries/logic/SupplyLogic.sol';
 import {FlashLoanLogic} from '../libraries/logic/FlashLoanLogic.sol';
 import {BorrowLogic} from '../libraries/logic/BorrowLogic.sol';
 import {LiquidationLogic} from '../libraries/logic/LiquidationLogic.sol';
-import {ReserveConfiguration} from '../libraries/configuration/ReserveConfiguration.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {BridgeLogic} from '../libraries/logic/BridgeLogic.sol';
 import {IERC20WithPermit} from '../../interfaces/IERC20WithPermit.sol';
 import {IPoolAddressesProvider} from '../../interfaces/IPoolAddressesProvider.sol';
-import {IAToken} from '../../interfaces/IAToken.sol';
 import {IPool} from '../../interfaces/IPool.sol';
 import {IACLManager} from '../../interfaces/IACLManager.sol';
 import {PoolStorage} from './PoolStorage.sol';
-import {Helpers} from '../libraries/helpers/Helpers.sol';
 
 /**
  * @title Pool contract
@@ -43,36 +36,54 @@ import {Helpers} from '../libraries/helpers/Helpers.sol';
  * @dev All admin functions are callable by the PoolConfigurator contract defined also in the
  *   PoolAddressesProvider
  **/
-contract Pool is VersionedInitializable, IPool, PoolStorage {
-  using WadRayMath for uint256;
-  using SafeERC20 for IERC20;
+contract Pool is VersionedInitializable, PoolStorage, IPool {
   using ReserveLogic for DataTypes.ReserveData;
-  using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
-  uint256 public constant POOL_REVISION = 0x2;
+  uint256 public constant POOL_REVISION = 0x1;
   IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
 
+  /**
+   * @dev Only pool configurator can call functions marked by this modifier.
+   **/
   modifier onlyPoolConfigurator() {
     _onlyPoolConfigurator();
     _;
   }
 
+  /**
+   * @dev Only pool admin can call functions marked by this modifier.
+   **/
+  modifier onlyPoolAdmin() {
+    _onlyPoolAdmin();
+    _;
+  }
+
+  /**
+   * @dev Only bridge can call functions marked by this modifier.
+   **/
   modifier onlyBridge() {
     _onlyBridge();
     _;
   }
 
-  function _onlyPoolConfigurator() internal view {
+  function _onlyPoolConfigurator() internal view virtual {
     require(
       ADDRESSES_PROVIDER.getPoolConfigurator() == msg.sender,
-      Errors.P_CALLER_NOT_POOL_CONFIGURATOR
+      Errors.CALLER_NOT_POOL_CONFIGURATOR
     );
   }
 
-  function _onlyBridge() internal view {
+  function _onlyPoolAdmin() internal view virtual {
+    require(
+      IACLManager(ADDRESSES_PROVIDER.getACLManager()).isPoolAdmin(msg.sender),
+      Errors.CALLER_NOT_POOL_ADMIN
+    );
+  }
+
+  function _onlyBridge() internal view virtual {
     require(
       IACLManager(ADDRESSES_PROVIDER.getACLManager()).isBridge(msg.sender),
-      Errors.P_CALLER_NOT_BRIDGE
+      Errors.CALLER_NOT_BRIDGE
     );
   }
 
@@ -80,6 +91,10 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     return POOL_REVISION;
   }
 
+  /**
+   * @dev Constructor.
+   * @param provider The address of the PoolAddressesProvider contract
+   */
   constructor(IPoolAddressesProvider provider) {
     ADDRESSES_PROVIDER = provider;
   }
@@ -91,24 +106,23 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
    * @dev Caching the address of the PoolAddressesProvider in order to reduce gas consumption on subsequent operations
    * @param provider The address of the PoolAddressesProvider
    **/
-  function initialize(IPoolAddressesProvider provider) external initializer {
-    require(provider == ADDRESSES_PROVIDER, Errors.PC_INVALID_CONFIGURATION);
-    _maxStableRateBorrowSizePercent = 2500;
-    _flashLoanPremiumTotal = 9;
+  function initialize(IPoolAddressesProvider provider) external virtual initializer {
+    require(provider == ADDRESSES_PROVIDER, Errors.INVALID_ADDRESSES_PROVIDER);
+    _maxStableRateBorrowSizePercent = 0.25e4;
+    _flashLoanPremiumTotal = 0.0009e4;
     _flashLoanPremiumToProtocol = 0;
   }
 
-  ///@inheritdoc IPool
+  /// @inheritdoc IPool
   function mintUnbacked(
     address asset,
     uint256 amount,
     address onBehalfOf,
     uint16 referralCode
-  ) external override onlyBridge {
+  ) external virtual override onlyBridge {
     BridgeLogic.executeMintUnbacked(
       _reserves,
       _reservesList,
-      _reserves[asset],
       _usersConfig[onBehalfOf],
       asset,
       amount,
@@ -117,12 +131,12 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     );
   }
 
-  ///@inheritdoc IPool
+  /// @inheritdoc IPool
   function backUnbacked(
     address asset,
     uint256 amount,
     uint256 fee
-  ) external override onlyBridge {
+  ) external virtual override onlyBridge {
     BridgeLogic.executeBackUnbacked(_reserves[asset], asset, amount, fee, _bridgeProtocolFee);
   }
 
@@ -132,7 +146,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     uint256 amount,
     address onBehalfOf,
     uint16 referralCode
-  ) external override {
+  ) external virtual override {
     SupplyLogic.executeSupply(
       _reserves,
       _reservesList,
@@ -156,7 +170,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     uint8 permitV,
     bytes32 permitR,
     bytes32 permitS
-  ) external override {
+  ) external virtual override {
     IERC20WithPermit(asset).permit(
       msg.sender,
       address(this),
@@ -184,7 +198,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     address asset,
     uint256 amount,
     address to
-  ) external override returns (uint256) {
+  ) external virtual override returns (uint256) {
     return
       SupplyLogic.executeWithdraw(
         _reserves,
@@ -209,7 +223,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     uint256 interestRateMode,
     uint16 referralCode,
     address onBehalfOf
-  ) external override {
+  ) external virtual override {
     BorrowLogic.executeBorrow(
       _reserves,
       _reservesList,
@@ -220,7 +234,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
         user: msg.sender,
         onBehalfOf: onBehalfOf,
         amount: amount,
-        interestRateMode: interestRateMode,
+        interestRateMode: DataTypes.InterestRateMode(interestRateMode),
         referralCode: referralCode,
         releaseUnderlying: true,
         maxStableRateBorrowSizePercent: _maxStableRateBorrowSizePercent,
@@ -236,19 +250,18 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   function repay(
     address asset,
     uint256 amount,
-    uint256 rateMode,
+    uint256 interestRateMode,
     address onBehalfOf
-  ) external override returns (uint256) {
+  ) external virtual override returns (uint256) {
     return
       BorrowLogic.executeRepay(
         _reserves,
         _reservesList,
-        _reserves[asset],
         _usersConfig[onBehalfOf],
         DataTypes.ExecuteRepayParams({
           asset: asset,
           amount: amount,
-          rateMode: rateMode,
+          interestRateMode: DataTypes.InterestRateMode(interestRateMode),
           onBehalfOf: onBehalfOf,
           useATokens: false
         })
@@ -259,13 +272,13 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   function repayWithPermit(
     address asset,
     uint256 amount,
-    uint256 rateMode,
+    uint256 interestRateMode,
     address onBehalfOf,
     uint256 deadline,
     uint8 permitV,
     bytes32 permitR,
     bytes32 permitS
-  ) external override returns (uint256) {
+  ) external virtual override returns (uint256) {
     {
       IERC20WithPermit(asset).permit(
         msg.sender,
@@ -281,18 +294,11 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
       DataTypes.ExecuteRepayParams memory params = DataTypes.ExecuteRepayParams({
         asset: asset,
         amount: amount,
-        rateMode: rateMode,
+        interestRateMode: DataTypes.InterestRateMode(interestRateMode),
         onBehalfOf: onBehalfOf,
         useATokens: false
       });
-      return
-        BorrowLogic.executeRepay(
-          _reserves,
-          _reservesList,
-          _reserves[asset],
-          _usersConfig[onBehalfOf],
-          params
-        );
+      return BorrowLogic.executeRepay(_reserves, _reservesList, _usersConfig[onBehalfOf], params);
     }
   }
 
@@ -300,18 +306,17 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   function repayWithATokens(
     address asset,
     uint256 amount,
-    uint256 rateMode
-  ) external override returns (uint256) {
+    uint256 interestRateMode
+  ) external virtual override returns (uint256) {
     return
       BorrowLogic.executeRepay(
         _reserves,
         _reservesList,
-        _reserves[asset],
         _usersConfig[msg.sender],
         DataTypes.ExecuteRepayParams({
           asset: asset,
           amount: amount,
-          rateMode: rateMode,
+          interestRateMode: DataTypes.InterestRateMode(interestRateMode),
           onBehalfOf: msg.sender,
           useATokens: true
         })
@@ -319,22 +324,26 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   }
 
   /// @inheritdoc IPool
-  function swapBorrowRateMode(address asset, uint256 rateMode) external override {
+  function swapBorrowRateMode(address asset, uint256 interestRateMode) external virtual override {
     BorrowLogic.executeSwapBorrowRateMode(
       _reserves[asset],
       _usersConfig[msg.sender],
       asset,
-      rateMode
+      DataTypes.InterestRateMode(interestRateMode)
     );
   }
 
   /// @inheritdoc IPool
-  function rebalanceStableBorrowRate(address asset, address user) external override {
+  function rebalanceStableBorrowRate(address asset, address user) external virtual override {
     BorrowLogic.executeRebalanceStableBorrowRate(_reserves[asset], asset, user);
   }
 
   /// @inheritdoc IPool
-  function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external override {
+  function setUserUseReserveAsCollateral(address asset, bool useAsCollateral)
+    external
+    virtual
+    override
+  {
     SupplyLogic.executeUseReserveAsCollateral(
       _reserves,
       _reservesList,
@@ -355,7 +364,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     address user,
     uint256 debtToCover,
     bool receiveAToken
-  ) external override {
+  ) external virtual override {
     LiquidationLogic.executeLiquidationCall(
       _reserves,
       _usersConfig,
@@ -380,16 +389,16 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     address receiverAddress,
     address[] calldata assets,
     uint256[] calldata amounts,
-    uint256[] calldata modes,
+    uint256[] calldata interestRateModes,
     address onBehalfOf,
     bytes calldata params,
     uint16 referralCode
-  ) external override {
+  ) external virtual override {
     DataTypes.FlashloanParams memory flashParams = DataTypes.FlashloanParams({
       receiverAddress: receiverAddress,
       assets: assets,
       amounts: amounts,
-      modes: modes,
+      interestRateModes: interestRateModes,
       onBehalfOf: onBehalfOf,
       params: params,
       referralCode: referralCode,
@@ -420,7 +429,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     uint256 amount,
     bytes calldata params,
     uint16 referralCode
-  ) external override {
+  ) external virtual override {
     DataTypes.FlashloanSimpleParams memory flashParams = DataTypes.FlashloanSimpleParams({
       receiverAddress: receiverAddress,
       asset: asset,
@@ -434,34 +443,15 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   }
 
   /// @inheritdoc IPool
-  function mintToTreasury(address[] calldata assets) external override {
-    for (uint256 i = 0; i < assets.length; i++) {
-      address assetAddress = assets[i];
-
-      DataTypes.ReserveData storage reserve = _reserves[assetAddress];
-
-      // this cover both inactive reserves and invalid reserves since the flag will be 0 for both
-      if (!reserve.configuration.getActive()) {
-        continue;
-      }
-
-      uint256 accruedToTreasury = reserve.accruedToTreasury;
-
-      if (accruedToTreasury != 0) {
-        reserve.accruedToTreasury = 0;
-        uint256 normalizedIncome = reserve.getNormalizedIncome();
-        uint256 amountToMint = accruedToTreasury.rayMul(normalizedIncome);
-        IAToken(reserve.aTokenAddress).mintToTreasury(amountToMint, normalizedIncome);
-
-        emit MintedToTreasury(assetAddress, amountToMint);
-      }
-    }
+  function mintToTreasury(address[] calldata assets) external virtual override {
+    PoolLogic.executeMintToTreasury(_reserves, assets);
   }
 
   /// @inheritdoc IPool
   function getReserveData(address asset)
     external
     view
+    virtual
     override
     returns (DataTypes.ReserveData memory)
   {
@@ -472,6 +462,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   function getUserAccountData(address user)
     external
     view
+    virtual
     override
     returns (
       uint256 totalCollateralBase,
@@ -482,37 +473,26 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
       uint256 healthFactor
     )
   {
-    (
-      totalCollateralBase,
-      totalDebtBase,
-      ltv,
-      currentLiquidationThreshold,
-      healthFactor,
-
-    ) = GenericLogic.calculateUserAccountData(
-      _reserves,
-      _reservesList,
-      _eModeCategories,
-      DataTypes.CalculateUserAccountDataParams({
-        userConfig: _usersConfig[user],
-        reservesCount: _reservesCount,
-        user: user,
-        oracle: ADDRESSES_PROVIDER.getPriceOracle(),
-        userEModeCategory: _usersEModeCategory[user]
-      })
-    );
-
-    availableBorrowsBase = GenericLogic.calculateAvailableBorrows(
-      totalCollateralBase,
-      totalDebtBase,
-      ltv
-    );
+    return
+      PoolLogic.executeGetUserAccountData(
+        _reserves,
+        _reservesList,
+        _eModeCategories,
+        DataTypes.CalculateUserAccountDataParams({
+          userConfig: _usersConfig[user],
+          reservesCount: _reservesCount,
+          user: user,
+          oracle: ADDRESSES_PROVIDER.getPriceOracle(),
+          userEModeCategory: _usersEModeCategory[user]
+        })
+      );
   }
 
   /// @inheritdoc IPool
   function getConfiguration(address asset)
     external
     view
+    virtual
     override
     returns (DataTypes.ReserveConfigurationMap memory)
   {
@@ -523,6 +503,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   function getUserConfiguration(address user)
     external
     view
+    virtual
     override
     returns (DataTypes.UserConfigurationMap memory)
   {
@@ -544,6 +525,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   function getReserveNormalizedVariableDebt(address asset)
     external
     view
+    virtual
     override
     returns (uint256)
   {
@@ -551,51 +533,48 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   }
 
   /// @inheritdoc IPool
-  function getReservesList() external view override returns (address[] memory) {
-    uint256 reserveListCount = _reservesCount;
+  function getReservesList() external view virtual override returns (address[] memory) {
+    uint256 reservesListCount = _reservesCount;
     uint256 droppedReservesCount = 0;
-    address[] memory reserves = new address[](reserveListCount);
+    address[] memory reservesList = new address[](reservesListCount);
 
-    for (uint256 i = 0; i < reserveListCount; i++) {
+    for (uint256 i = 0; i < reservesListCount; i++) {
       if (_reservesList[i] != address(0)) {
-        reserves[i - droppedReservesCount] = _reservesList[i];
+        reservesList[i - droppedReservesCount] = _reservesList[i];
       } else {
         droppedReservesCount++;
       }
     }
 
-    if (droppedReservesCount == 0) return reserves;
-
-    address[] memory undroppedReserves = new address[](reserveListCount - droppedReservesCount);
-    for (uint256 i = 0; i < reserveListCount - droppedReservesCount; i++) {
-      undroppedReserves[i] = reserves[i];
+    // Reduces the length of the reserves array by `droppedReservesCount`
+    assembly {
+      mstore(reservesList, sub(reservesListCount, droppedReservesCount))
     }
-
-    return undroppedReserves;
+    return reservesList;
   }
 
   /// @inheritdoc IPool
-  function MAX_STABLE_RATE_BORROW_SIZE_PERCENT() public view override returns (uint256) {
+  function MAX_STABLE_RATE_BORROW_SIZE_PERCENT() public view virtual override returns (uint256) {
     return _maxStableRateBorrowSizePercent;
   }
 
   /// @inheritdoc IPool
-  function BRIDGE_PROTOCOL_FEE() public view override returns (uint256) {
+  function BRIDGE_PROTOCOL_FEE() public view virtual override returns (uint256) {
     return _bridgeProtocolFee;
   }
 
   /// @inheritdoc IPool
-  function FLASHLOAN_PREMIUM_TOTAL() public view override returns (uint256) {
+  function FLASHLOAN_PREMIUM_TOTAL() public view virtual override returns (uint128) {
     return _flashLoanPremiumTotal;
   }
 
   /// @inheritdoc IPool
-  function FLASHLOAN_PREMIUM_TO_PROTOCOL() public view override returns (uint256) {
+  function FLASHLOAN_PREMIUM_TO_PROTOCOL() public view virtual override returns (uint128) {
     return _flashLoanPremiumToProtocol;
   }
 
   /// @inheritdoc IPool
-  function MAX_NUMBER_RESERVES() public view virtual override returns (uint256) {
+  function MAX_NUMBER_RESERVES() public view virtual override returns (uint16) {
     return ReserveConfiguration.MAX_RESERVES_COUNT;
   }
 
@@ -607,8 +586,8 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     uint256 amount,
     uint256 balanceFromBefore,
     uint256 balanceToBefore
-  ) external override {
-    require(msg.sender == _reserves[asset].aTokenAddress, Errors.P_CALLER_MUST_BE_AN_ATOKEN);
+  ) external virtual override {
+    require(msg.sender == _reserves[asset].aTokenAddress, Errors.CALLER_NOT_ATOKEN);
     SupplyLogic.executeFinalizeTransfer(
       _reserves,
       _reservesList,
@@ -623,8 +602,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
         balanceToBefore: balanceToBefore,
         reservesCount: _reservesCount,
         oracle: ADDRESSES_PROVIDER.getPriceOracle(),
-        fromEModeCategory: _usersEModeCategory[from],
-        toEModeCategory: _usersEModeCategory[to]
+        fromEModeCategory: _usersEModeCategory[from]
       })
     );
   }
@@ -636,65 +614,83 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
     address stableDebtAddress,
     address variableDebtAddress,
     address interestRateStrategyAddress
-  ) external override onlyPoolConfigurator {
-    require(Address.isContract(asset), Errors.P_NOT_CONTRACT);
-    _reserves[asset].init(
-      aTokenAddress,
-      stableDebtAddress,
-      variableDebtAddress,
-      interestRateStrategyAddress
-    );
-    _addReserveToList(asset);
+  ) external virtual override onlyPoolConfigurator {
+    if (
+      PoolLogic.executeInitReserve(
+        _reserves,
+        _reservesList,
+        DataTypes.InitReserveParams({
+          asset: asset,
+          aTokenAddress: aTokenAddress,
+          stableDebtAddress: stableDebtAddress,
+          variableDebtAddress: variableDebtAddress,
+          interestRateStrategyAddress: interestRateStrategyAddress,
+          reservesCount: _reservesCount,
+          maxNumberReserves: MAX_NUMBER_RESERVES()
+        })
+      )
+    ) {
+      _reservesCount++;
+    }
   }
 
   /// @inheritdoc IPool
-  function dropReserve(address asset) external override onlyPoolConfigurator {
-    DataTypes.ReserveData storage reserve = _reserves[asset];
-    ValidationLogic.validateDropReserve(reserve);
-    _reservesList[_reserves[asset].id] = address(0);
-    delete _reserves[asset];
+  function dropReserve(address asset) external virtual override onlyPoolConfigurator {
+    PoolLogic.executeDropReserve(_reserves, _reservesList, asset);
   }
 
   /// @inheritdoc IPool
   function setReserveInterestRateStrategyAddress(address asset, address rateStrategyAddress)
     external
+    virtual
     override
     onlyPoolConfigurator
   {
+    require(asset != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
+    require(_reserves[asset].id != 0 || _reservesList[0] == asset, Errors.ASSET_NOT_LISTED);
     _reserves[asset].interestRateStrategyAddress = rateStrategyAddress;
   }
 
   /// @inheritdoc IPool
-  function setConfiguration(address asset, uint256 configuration)
+  function setConfiguration(address asset, DataTypes.ReserveConfigurationMap calldata configuration)
     external
+    virtual
     override
     onlyPoolConfigurator
   {
-    _reserves[asset].configuration.data = configuration;
+    require(asset != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
+    require(_reserves[asset].id != 0 || _reservesList[0] == asset, Errors.ASSET_NOT_LISTED);
+    _reserves[asset].configuration = configuration;
   }
 
   /// @inheritdoc IPool
-  function updateBridgeProtocolFee(uint256 protocolFee) external override onlyPoolConfigurator {
+  function updateBridgeProtocolFee(uint256 protocolFee)
+    external
+    virtual
+    override
+    onlyPoolConfigurator
+  {
     _bridgeProtocolFee = protocolFee;
   }
 
   /// @inheritdoc IPool
   function updateFlashloanPremiums(
-    uint256 flashLoanPremiumTotal,
-    uint256 flashLoanPremiumToProtocol
-  ) external override onlyPoolConfigurator {
-    _flashLoanPremiumTotal = Helpers.castUint128(flashLoanPremiumTotal);
-    _flashLoanPremiumToProtocol = Helpers.castUint128(flashLoanPremiumToProtocol);
+    uint128 flashLoanPremiumTotal,
+    uint128 flashLoanPremiumToProtocol
+  ) external virtual override onlyPoolConfigurator {
+    _flashLoanPremiumTotal = flashLoanPremiumTotal;
+    _flashLoanPremiumToProtocol = flashLoanPremiumToProtocol;
   }
 
   /// @inheritdoc IPool
   function configureEModeCategory(uint8 id, DataTypes.EModeCategory memory category)
     external
+    virtual
     override
     onlyPoolConfigurator
   {
     // category 0 is reserved for volatile heterogeneous assets and it's always disabled
-    require(id != 0, Errors.RC_INVALID_EMODE_CATEGORY);
+    require(id != 0, Errors.EMODE_CATEGORY_RESERVED);
     _eModeCategories[id] = category;
   }
 
@@ -702,6 +698,7 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   function getEModeCategoryData(uint8 id)
     external
     view
+    virtual
     override
     returns (DataTypes.EModeCategory memory)
   {
@@ -725,38 +722,37 @@ contract Pool is VersionedInitializable, IPool, PoolStorage {
   }
 
   /// @inheritdoc IPool
-  function getUserEMode(address user) external view override returns (uint256) {
+  function getUserEMode(address user) external view virtual override returns (uint256) {
     return _usersEModeCategory[user];
   }
 
-  function _addReserveToList(address asset) internal {
-    bool reserveAlreadyAdded = _reserves[asset].id != 0 || _reservesList[0] == asset;
-    require(!reserveAlreadyAdded, Errors.RL_RESERVE_ALREADY_INITIALIZED);
-
-    uint16 reservesCount = _reservesCount;
-
-    for (uint16 i = 0; i < reservesCount; i++) {
-      if (_reservesList[i] == address(0)) {
-        _reserves[asset].id = i;
-        _reservesList[i] = asset;
-        return;
-      }
-    }
-    require(reservesCount < MAX_NUMBER_RESERVES(), Errors.P_NO_MORE_RESERVES_ALLOWED);
-    _reserves[asset].id = reservesCount;
-    _reservesList[reservesCount] = asset;
-    // no need to check for overflow - the require above must ensure that max number of reserves < type(uint16).max
-    _reservesCount = reservesCount + 1;
+  /// @inheritdoc IPool
+  function resetIsolationModeTotalDebt(address asset)
+    external
+    virtual
+    override
+    onlyPoolConfigurator
+  {
+    PoolLogic.executeResetIsolationModeTotalDebt(_reserves, asset);
   }
 
   /// @inheritdoc IPool
-  /// @dev Deprecated: mantained for compatibilty purposes
+  function rescueTokens(
+    address token,
+    address to,
+    uint256 amount
+  ) external virtual override onlyPoolAdmin {
+    PoolLogic.executeRescueTokens(token, to, amount);
+  }
+
+  /// @inheritdoc IPool
+  /// @dev Deprecated: maintained for compatibility purposes
   function deposit(
     address asset,
     uint256 amount,
     address onBehalfOf,
     uint16 referralCode
-  ) external override {
+  ) external virtual override {
     SupplyLogic.executeSupply(
       _reserves,
       _reservesList,

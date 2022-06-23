@@ -17,6 +17,7 @@ import '@tenderly/hardhat-tenderly';
 import 'solidity-coverage';
 import 'hardhat-contract-sizer';
 import 'hardhat-dependency-compiler';
+import { DEFAULT_NAMED_ACCOUNTS } from '@aave/deploy-v3';
 
 const DEFAULT_BLOCK_GAS_LIMIT = 12450000;
 const HARDFORK = 'london';
@@ -47,7 +48,7 @@ const hardhatConfig: HardhatUserConfig = {
   },
   mocha: {
     timeout: 0,
-    bail: true,
+    bail: false,
   },
   tenderly: {
     project: process.env.TENDERLY_PROJECT || '',
@@ -87,27 +88,7 @@ const hardhatConfig: HardhatUserConfig = {
     },
   },
   namedAccounts: {
-    deployer: {
-      default: 0,
-    },
-    aclAdmin: {
-      default: 0,
-    },
-    emergencyAdmin: {
-      default: 0,
-    },
-    poolAdmin: {
-      default: 0,
-    },
-    addressesProviderRegistryOwner: {
-      default: 0,
-    },
-    treasuryProxyAdmin: {
-      default: 1,
-    },
-    incentivesProxyAdmin: {
-      default: 2,
-    },
+    ...DEFAULT_NAMED_ACCOUNTS,
   },
   external: {
     contracts: [

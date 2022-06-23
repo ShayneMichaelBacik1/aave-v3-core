@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: AGPL-3.0
 pragma solidity 0.8.10;
 
 import {BaseUpgradeabilityProxy} from '../../../dependencies/openzeppelin/upgradeability/BaseUpgradeabilityProxy.sol';
@@ -14,14 +14,18 @@ import {BaseUpgradeabilityProxy} from '../../../dependencies/openzeppelin/upgrad
  * feature proposal that would enable this to be done automatically.
  */
 contract BaseImmutableAdminUpgradeabilityProxy is BaseUpgradeabilityProxy {
-  address immutable ADMIN;
+  address internal immutable _admin;
 
+  /**
+   * @dev Constructor.
+   * @param admin The address of the admin
+   */
   constructor(address admin) {
-    ADMIN = admin;
+    _admin = admin;
   }
 
   modifier ifAdmin() {
-    if (msg.sender == ADMIN) {
+    if (msg.sender == _admin) {
       _;
     } else {
       _fallback();
@@ -33,7 +37,7 @@ contract BaseImmutableAdminUpgradeabilityProxy is BaseUpgradeabilityProxy {
    * @return The address of the proxy admin.
    */
   function admin() external ifAdmin returns (address) {
-    return ADMIN;
+    return _admin;
   }
 
   /**
@@ -76,7 +80,7 @@ contract BaseImmutableAdminUpgradeabilityProxy is BaseUpgradeabilityProxy {
    * @notice Only fall back when the sender is not the admin.
    */
   function _willFallback() internal virtual override {
-    require(msg.sender != ADMIN, 'Cannot call fallback function from the proxy admin');
+    require(msg.sender != _admin, 'Cannot call fallback function from the proxy admin');
     super._willFallback();
   }
 }

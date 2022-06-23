@@ -25,7 +25,7 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
   );
 
   const aTokenMintEventSignature = utils.keccak256(
-    utils.toUtf8Bytes('Mint(address,uint256,uint256,uint256)')
+    utils.toUtf8Bytes('Mint(address,address,uint256,uint256,uint256)')
   );
   const aTokenBurnEventSignature = utils.keccak256(
     utils.toUtf8Bytes('Burn(address,address,uint256,uint256,uint256)')
@@ -34,7 +34,7 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
     utils.toUtf8Bytes('Mint(address,address,uint256,uint256,uint256)')
   );
   const vDebtTokenBurnEventSignature = utils.keccak256(
-    utils.toUtf8Bytes('Burn(address,uint256,uint256,uint256)')
+    utils.toUtf8Bytes('Burn(address,address,uint256,uint256,uint256)')
   );
 
   before('User 0 deposits 100 DAI, user 1 deposits 1 WETH, borrows 50 DAI', async () => {
@@ -73,12 +73,52 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
       .to.emit(aDai, 'Mint')
       .withArgs(
         depositor.address,
+        depositor.address,
         firstDaiDeposit,
         expectedBalanceIncrease,
         daiReserveData.liquidityIndex
       );
 
     const aDaiBalance = await aDai.balanceOf(depositor.address);
+    expect(aDaiBalance).to.be.equal(firstDaiDeposit);
+  });
+
+  it('User 1 - Deposit dai on behalf of user 2', async () => {
+    const {
+      dai,
+      aDai,
+      users: [depositor, receiver],
+      pool,
+      helpersContract,
+    } = testEnv;
+
+    // mints DAI to depositor
+    await waitForTx(
+      await dai
+        .connect(depositor.signer)
+        ['mint(uint256)'](await convertToCurrencyDecimals(dai.address, '10000'))
+    );
+
+    // approve protocol to access depositor wallet
+    await waitForTx(await dai.connect(depositor.signer).approve(pool.address, MAX_UINT_AMOUNT));
+
+    const daiReserveData = await helpersContract.getReserveData(dai.address);
+
+    const expectedBalanceIncrease = 0;
+
+    await expect(
+      pool.connect(depositor.signer).deposit(dai.address, firstDaiDeposit, receiver.address, '0')
+    )
+      .to.emit(aDai, 'Mint')
+      .withArgs(
+        depositor.address,
+        receiver.address,
+        firstDaiDeposit,
+        expectedBalanceIncrease,
+        daiReserveData.liquidityIndex
+      );
+
+    const aDaiBalance = await aDai.balanceOf(receiver.address);
     expect(aDaiBalance).to.be.equal(firstDaiDeposit);
   });
 
@@ -169,7 +209,8 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
     expect(parsedTransferEvent.args.value).to.be.closeTo(totalMinted, 2);
 
     // check mint event parameters
-    expect(parsedMintEvent.args.from).to.equal(borrower.address);
+    expect(parsedMintEvent.args.caller).to.equal(borrower.address);
+    expect(parsedMintEvent.args.onBehalfOf).to.equal(borrower.address);
     expect(parsedMintEvent.args.value).to.be.closeTo(totalMinted, 2);
     expect(parsedMintEvent.args.balanceIncrease).to.be.closeTo(accruedDebt1, 2);
   });
@@ -224,7 +265,8 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
     expect(parsedTransferEvent.args.value).to.be.closeTo(totalMinted, 2);
 
     // check mint event parameters
-    expect(parsedMintEvent.args.from).to.equal(depositor.address);
+    expect(parsedMintEvent.args.caller).to.equal(depositor.address);
+    expect(parsedMintEvent.args.onBehalfOf).to.equal(depositor.address);
     expect(parsedMintEvent.args.value).to.be.closeTo(totalMinted, 2);
     expect(parsedMintEvent.args.balanceIncrease).to.be.closeTo(accruedInterest1, 2);
   });
@@ -282,7 +324,8 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
     expect(parsedTransferEvent.args.value).to.be.closeTo(totalMinted, 2);
 
     // check mint event
-    expect(parsedMintEvent.args.from).to.equal(depositor.address);
+    expect(parsedMintEvent.args.caller).to.equal(depositor.address);
+    expect(parsedMintEvent.args.onBehalfOf).to.equal(depositor.address);
     expect(parsedMintEvent.args.value).to.be.closeTo(totalMinted, 2);
     expect(parsedMintEvent.args.balanceIncrease).to.be.closeTo(accruedInterest2, 2);
     expect(parsedMintEvent.args.index).to.equal(daiReserveData.liquidityIndex);
@@ -347,8 +390,8 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
     expect(parsedTransferEvent.args.value).to.be.closeTo(totalBurned, 2);
 
     // check burn parameters
-    expect(parsedBurnEvent.args.user).to.equal(borrower.address);
-    expect(parsedBurnEvent.args.amount).to.be.closeTo(totalBurned, 2);
+    expect(parsedBurnEvent.args.from).to.equal(borrower.address);
+    expect(parsedBurnEvent.args.value).to.be.closeTo(totalBurned, 2);
     expect(parsedBurnEvent.args.balanceIncrease).to.be.closeTo(accruedDebt3, 2);
     expect(borrowerDaiData.currentVariableDebt).to.be.equal(0);
   });
@@ -387,7 +430,7 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
       (log) => log.topics[0] === transferEventSignature
     );
     expect(rawTransferEvents.length).to.equal(2, 'Incorrect number of Transfer Events');
-    const parsedTransferEvent = aDai.interface.parseLog(rawTransferEvents[1]);
+    const parsedTransferEvent = aDai.interface.parseLog(rawTransferEvents[0]);
 
     // get burn event
     const rawBurnEvents = withdrawReceipt.logs.filter(
@@ -471,7 +514,7 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
     expect(parsedTransferEvent.args.value).to.be.closeTo(totalMinted, 2);
 
     // check mint event
-    expect(parsedMintEvent.args.from).to.equal(borrower.address);
+    expect(parsedMintEvent.args.caller).to.equal(borrower.address);
     expect(parsedMintEvent.args.onBehalfOf).to.equal(borrower.address);
     expect(parsedMintEvent.args.value).to.be.closeTo(totalMinted, 2);
     expect(parsedMintEvent.args.balanceIncrease).to.be.closeTo(totalMinted.add(smallRepay), 2);
@@ -503,7 +546,7 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
       (log) => log.topics[0] === transferEventSignature
     );
     expect(rawTransferEvents.length).to.equal(2, 'Incorrect number of Transfer Events');
-    const parsedTransferEvent = aDai.interface.parseLog(rawTransferEvents[1]);
+    const parsedTransferEvent = aDai.interface.parseLog(rawTransferEvents[0]);
 
     // get mint event
     const rawMintEvents = withdrawReceipt.logs.filter(
@@ -518,7 +561,8 @@ makeSuite('AToken Mint and Burn Event Accounting', (testEnv) => {
     expect(parsedTransferEvent.args.value).to.be.closeTo(totalMinted, 2);
 
     // check mint event
-    expect(parsedMintEvent.args.from).to.equal(depositor.address);
+    expect(parsedMintEvent.args.caller).to.equal(depositor.address);
+    expect(parsedMintEvent.args.onBehalfOf).to.equal(depositor.address);
     expect(parsedMintEvent.args.value).to.be.closeTo(totalMinted, 2);
     expect(parsedMintEvent.args.balanceIncrease).to.be.closeTo(totalMinted.add(smallWithdrawal), 2);
     expect(parsedMintEvent.args.index).to.equal(daiReserveData.liquidityIndex);

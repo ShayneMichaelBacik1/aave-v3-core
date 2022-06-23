@@ -9,7 +9,7 @@ import {
   getMockPool,
   getPoolConfiguratorProxy,
 } from '@aave/deploy-v3/dist/helpers/contract-getters';
-import { getFirstSigner } from '@aave/deploy-v3/dist/helpers/utilities/tx';
+import { getFirstSigner } from '@aave/deploy-v3/dist/helpers/utilities/signer';
 import { deployMockPool } from '@aave/deploy-v3/dist/helpers/contract-deployments';
 import {
   ACLManager__factory,
@@ -23,11 +23,8 @@ import { evmSnapshot, evmRevert } from '@aave/deploy-v3';
 makeSuite('PausablePool', (testEnv: TestEnv) => {
   let _mockFlashLoanReceiver = {} as MockFlashLoanReceiver;
 
-  const {
-    VL_RESERVE_PAUSED,
-    INVALID_FROM_BALANCE_AFTER_TRANSFER,
-    INVALID_TO_BALANCE_AFTER_TRANSFER,
-  } = ProtocolErrors;
+  const { RESERVE_PAUSED, INVALID_FROM_BALANCE_AFTER_TRANSFER, INVALID_TO_BALANCE_AFTER_TRANSFER } =
+    ProtocolErrors;
 
   before(async () => {
     _mockFlashLoanReceiver = await getMockFlashLoanReceiver();
@@ -55,7 +52,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // User 0 tries the transfer to User 1
     await expect(
       aDai.connect(users[0].signer).transfer(users[1].address, amountDAItoDeposit)
-    ).to.revertedWith(VL_RESERVE_PAUSED);
+    ).to.revertedWith(RESERVE_PAUSED);
 
     const pausedFromBalance = await aDai.balanceOf(users[0].address);
     const pausedToBalance = await aDai.balanceOf(users[1].address);
@@ -102,7 +99,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     await configurator.connect(users[1].signer).setPoolPause(true);
     await expect(
       pool.connect(users[0].signer).deposit(dai.address, amountDAItoDeposit, users[0].address, '0')
-    ).to.revertedWith(VL_RESERVE_PAUSED);
+    ).to.revertedWith(RESERVE_PAUSED);
 
     // Configurator unpauses the pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -127,7 +124,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // user tries to burn
     await expect(
       pool.connect(users[0].signer).withdraw(dai.address, amountDAItoDeposit, users[0].address)
-    ).to.revertedWith(VL_RESERVE_PAUSED);
+    ).to.revertedWith(RESERVE_PAUSED);
 
     // Configurator unpauses the pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -143,7 +140,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // Try to execute liquidation
     await expect(
       pool.connect(user.signer).borrow(dai.address, '1', '1', '0', user.address)
-    ).to.be.revertedWith(VL_RESERVE_PAUSED);
+    ).to.be.revertedWith(RESERVE_PAUSED);
 
     // Unpause the pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -159,7 +156,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // Try to execute liquidation
     await expect(
       pool.connect(user.signer).repay(dai.address, '1', '1', user.address)
-    ).to.be.revertedWith(VL_RESERVE_PAUSED);
+    ).to.be.revertedWith(RESERVE_PAUSED);
 
     // Unpause the pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -189,7 +186,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
           '0x10',
           '0'
         )
-    ).to.be.revertedWith(VL_RESERVE_PAUSED);
+    ).to.be.revertedWith(RESERVE_PAUSED);
 
     // Unpause pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -262,7 +259,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // Do liquidation
     await expect(
       pool.liquidationCall(weth.address, usdc.address, borrower.address, amountToLiquidate, true)
-    ).to.be.revertedWith(VL_RESERVE_PAUSED);
+    ).to.be.revertedWith(RESERVE_PAUSED);
 
     // Unpause pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -291,7 +288,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // Try to repay
     await expect(
       pool.connect(user.signer).swapBorrowRateMode(usdc.address, RateMode.Stable)
-    ).to.be.revertedWith(VL_RESERVE_PAUSED);
+    ).to.be.revertedWith(RESERVE_PAUSED);
 
     // Unpause pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -305,7 +302,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
 
     await expect(
       pool.connect(user.signer).rebalanceStableBorrowRate(dai.address, user.address)
-    ).to.be.revertedWith(VL_RESERVE_PAUSED);
+    ).to.be.revertedWith(RESERVE_PAUSED);
 
     // Unpause pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -325,7 +322,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
 
     await expect(
       pool.connect(user.signer).setUserUseReserveAsCollateral(weth.address, false)
-    ).to.be.revertedWith(VL_RESERVE_PAUSED);
+    ).to.be.revertedWith(RESERVE_PAUSED);
 
     // Unpause pool
     await configurator.connect(users[1].signer).setPoolPause(false);
@@ -368,7 +365,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     ).deployed();
     expect(await poolAddressesProvider.setACLManager(aclManager.address))
       .to.emit(poolAddressesProvider, 'ACLManagerUpdated')
-      .withArgs(aclManager.address);
+      .withArgs(ZERO_ADDRESS, aclManager.address);
 
     // Set role of EmergencyAdmin
     const emergencyAdminRole = await aclManager.EMERGENCY_ADMIN_ROLE();
@@ -379,7 +376,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // Update the Pool impl with a MockPool
     expect(await poolAddressesProvider.setPoolImpl(mockPool.address))
       .to.emit(poolAddressesProvider, 'PoolUpdated')
-      .withArgs(mockPool.address);
+      .withArgs(ZERO_ADDRESS, mockPool.address);
 
     // Add ZERO_ADDRESS as a reserve
     const proxiedMockPoolAddress = await poolAddressesProvider.getPool();
@@ -389,7 +386,7 @@ makeSuite('PausablePool', (testEnv: TestEnv) => {
     // Update the PoolConfigurator impl with the PoolConfigurator
     expect(await poolAddressesProvider.setPoolConfiguratorImpl(poolConfigurator.address))
       .to.emit(poolAddressesProvider, 'PoolConfiguratorUpdated')
-      .withArgs(poolConfigurator.address);
+      .withArgs(ZERO_ADDRESS, poolConfigurator.address);
 
     const proxiedPoolConfiguratorAddress = await poolAddressesProvider.getPoolConfigurator();
     const proxiedPoolConfigurator = await getPoolConfiguratorProxy(proxiedPoolConfiguratorAddress);

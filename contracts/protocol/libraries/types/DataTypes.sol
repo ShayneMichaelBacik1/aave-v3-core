@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
 library DataTypes {
-  // refer to the whitepaper, section 1.1 basic concepts for a formal description of these properties.
   struct ReserveData {
     //stores the reserve configuration
     ReserveConfigurationMap configuration;
@@ -16,19 +15,23 @@ library DataTypes {
     uint128 currentVariableBorrowRate;
     //the current stable borrow rate. Expressed in ray
     uint128 currentStableBorrowRate;
+    //timestamp of last update
     uint40 lastUpdateTimestamp;
     //the id of the reserve. Represents the position in the list of the active reserves
     uint16 id;
-    //tokens addresses
+    //aToken address
     address aTokenAddress;
+    //stableDebtToken address
     address stableDebtTokenAddress;
+    //variableDebtToken address
     address variableDebtTokenAddress;
     //address of the interest rate strategy
     address interestRateStrategyAddress;
     //the current treasury balance, scaled
     uint128 accruedToTreasury;
-    //the quickwithdraw balance waiting for underlying to be backed
+    //the outstanding unbacked aTokens minted through the bridging feature
     uint128 unbacked;
+    //the outstanding debt borrowed against this asset in isolation mode
     uint128 isolationModeTotalDebt;
   }
 
@@ -57,6 +60,11 @@ library DataTypes {
   }
 
   struct UserConfigurationMap {
+    /**
+     * @dev Bitmap of the users collaterals and borrows. It is divided in pairs of bits, one pair per asset.
+     * The first bit indicates if an asset is used as collateral by the user, the second whether an
+     * asset is borrowed by the user.
+     */
     uint256 data;
   }
 
@@ -91,7 +99,7 @@ library DataTypes {
     uint256 currLiquidityRate;
     uint256 currVariableBorrowRate;
     uint256 reserveFactor;
-    DataTypes.ReserveConfigurationMap reserveConfiguration;
+    ReserveConfigurationMap reserveConfiguration;
     address aTokenAddress;
     address stableDebtTokenAddress;
     address variableDebtTokenAddress;
@@ -123,7 +131,7 @@ library DataTypes {
     address user;
     address onBehalfOf;
     uint256 amount;
-    uint256 interestRateMode;
+    InterestRateMode interestRateMode;
     uint16 referralCode;
     bool releaseUnderlying;
     uint256 maxStableRateBorrowSizePercent;
@@ -136,7 +144,7 @@ library DataTypes {
   struct ExecuteRepayParams {
     address asset;
     uint256 amount;
-    uint256 rateMode;
+    InterestRateMode interestRateMode;
     address onBehalfOf;
     bool useATokens;
   }
@@ -166,14 +174,13 @@ library DataTypes {
     uint256 reservesCount;
     address oracle;
     uint8 fromEModeCategory;
-    uint8 toEModeCategory;
   }
 
   struct FlashloanParams {
     address receiverAddress;
     address[] assets;
     uint256[] amounts;
-    uint256[] modes;
+    uint256[] interestRateModes;
     address onBehalfOf;
     bytes params;
     uint16 referralCode;
@@ -196,6 +203,15 @@ library DataTypes {
     uint256 flashLoanPremiumTotal;
   }
 
+  struct FlashLoanRepaymentParams {
+    uint256 amount;
+    uint256 totalPremium;
+    uint256 flashLoanPremiumToProtocol;
+    address asset;
+    address receiverAddress;
+    uint16 referralCode;
+  }
+
   struct CalculateUserAccountDataParams {
     UserConfigurationMap userConfig;
     uint256 reservesCount;
@@ -205,12 +221,12 @@ library DataTypes {
   }
 
   struct ValidateBorrowParams {
-    DataTypes.ReserveCache reserveCache;
-    DataTypes.UserConfigurationMap userConfig;
+    ReserveCache reserveCache;
+    UserConfigurationMap userConfig;
     address asset;
     address userAddress;
     uint256 amount;
-    uint256 interestRateMode;
+    InterestRateMode interestRateMode;
     uint256 maxStableLoanPercent;
     uint256 reservesCount;
     address oracle;
@@ -222,7 +238,7 @@ library DataTypes {
   }
 
   struct ValidateLiquidationCallParams {
-    DataTypes.ReserveCache debtReserveCache;
+    ReserveCache debtReserveCache;
     uint256 totalDebt;
     uint256 healthFactor;
     address priceOracleSentinel;
@@ -238,5 +254,15 @@ library DataTypes {
     uint256 reserveFactor;
     address reserve;
     address aToken;
+  }
+
+  struct InitReserveParams {
+    address asset;
+    address aTokenAddress;
+    address stableDebtAddress;
+    address variableDebtAddress;
+    address interestRateStrategyAddress;
+    uint16 reservesCount;
+    uint16 maxNumberReserves;
   }
 }

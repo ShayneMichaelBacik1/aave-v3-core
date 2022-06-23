@@ -18,15 +18,10 @@ import { waitForTx } from '@aave/deploy-v3';
 makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
   let _mockFlashLoanSimpleReceiver = {} as MockFlashLoanSimpleReceiver;
 
-  const {
-    TRANSFER_AMOUNT_EXCEEDS_BALANCE,
-    SAFEERC20_LOWLEVEL_CALL,
-    P_INVALID_FLASH_LOAN_EXECUTOR_RETURN,
-  } = ProtocolErrors;
-
+  const { ERC20_TRANSFER_AMOUNT_EXCEEDS_BALANCE, INVALID_FLASHLOAN_EXECUTOR_RETURN } =
+    ProtocolErrors;
   const TOTAL_PREMIUM = 9;
-  const PREMIUM_TO_PROTOCOL = 3;
-  const PREMIUM_TO_LP = TOTAL_PREMIUM - PREMIUM_TO_PROTOCOL;
+  const PREMIUM_TO_PROTOCOL = 3000;
 
   before(async () => {
     const { addressesProvider, deployer } = testEnv;
@@ -36,7 +31,7 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
     ).deploy(addressesProvider.address);
   });
 
-  it('Configurator sets total premium = 9 bps, premium to protocol = 3 bps', async () => {
+  it('Configurator sets total premium = 9 bps, premium to protocol = 30%', async () => {
     const { configurator, pool } = testEnv;
     await configurator.updateFlashloanPremiumTotal(TOTAL_PREMIUM);
     await configurator.updateFlashloanPremiumToProtocol(PREMIUM_TO_PROTOCOL);
@@ -73,8 +68,8 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
 
     const wethFlashBorrowedAmount = ethers.utils.parseEther('0.8');
     const wethTotalFees = wethFlashBorrowedAmount.mul(TOTAL_PREMIUM).div(10000);
-    const wethFeesToProtocol = wethFlashBorrowedAmount.mul(PREMIUM_TO_PROTOCOL).div(10000);
-    const wethFeesToLp = wethFlashBorrowedAmount.mul(PREMIUM_TO_LP).div(10000);
+    const wethFeesToProtocol = wethTotalFees.mul(PREMIUM_TO_PROTOCOL).div(10000);
+    const wethFeesToLp = wethTotalFees.sub(wethFeesToProtocol);
 
     const wethLiquidityIndexAdded = wethFeesToLp
       .mul(BigNumber.from(10).pow(27))
@@ -146,8 +141,8 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
     const flashBorrowedAmount = totalLiquidityBefore;
 
     const totalFees = flashBorrowedAmount.mul(TOTAL_PREMIUM).div(10000);
-    const feesToProtocol = flashBorrowedAmount.mul(PREMIUM_TO_PROTOCOL).div(10000);
-    const feesToLp = flashBorrowedAmount.mul(PREMIUM_TO_LP).div(10000);
+    const feesToProtocol = totalFees.mul(PREMIUM_TO_PROTOCOL).div(10000);
+    const feesToLp = totalFees.sub(feesToProtocol);
     const liquidityIndexBefore = reserveData.liquidityIndex;
     const liquidityIndexAdded = feesToLp
       .mul(BigNumber.from(10).pow(27))
@@ -198,7 +193,7 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
           '0x10',
           '0'
         )
-    ).to.be.revertedWith(SAFEERC20_LOWLEVEL_CALL);
+    ).to.be.reverted;
   });
 
   it('Takes WETH flashloan, simulating a receiver as EOA (revert expected)', async () => {
@@ -217,7 +212,7 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
           '0x10',
           '0'
         )
-    ).to.be.revertedWith(P_INVALID_FLASH_LOAN_EXECUTOR_RETURN);
+    ).to.be.revertedWith(INVALID_FLASHLOAN_EXECUTOR_RETURN);
   });
 
   it('Tries to take a flashloan that is bigger than the available liquidity (revert expected)', async () => {
@@ -232,8 +227,8 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
         '0x10',
         '0'
       ),
-      TRANSFER_AMOUNT_EXCEEDS_BALANCE
-    ).to.be.revertedWith(SAFEERC20_LOWLEVEL_CALL);
+      ERC20_TRANSFER_AMOUNT_EXCEEDS_BALANCE
+    ).to.be.reverted;
   });
 
   it('Tries to take a flashloan using a non contract address as receiver (revert expected)', async () => {
@@ -265,8 +260,8 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
 
     const flashBorrowedAmount = await convertToCurrencyDecimals(usdc.address, '500');
     const totalFees = flashBorrowedAmount.mul(TOTAL_PREMIUM).div(10000);
-    const feesToProtocol = flashBorrowedAmount.mul(PREMIUM_TO_PROTOCOL).div(10000);
-    const feesToLp = flashBorrowedAmount.mul(PREMIUM_TO_LP).div(10000);
+    const feesToProtocol = totalFees.mul(PREMIUM_TO_PROTOCOL).div(10000);
+    const feesToLp = totalFees.sub(feesToProtocol);
     const liquidityIndexAdded = feesToLp
       .mul(ethers.BigNumber.from(10).pow(27))
       .div(await aUsdc.totalSupply());
@@ -322,7 +317,7 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
           '0x10',
           '0'
         )
-    ).to.be.revertedWith(P_INVALID_FLASH_LOAN_EXECUTOR_RETURN);
+    ).to.be.revertedWith(INVALID_FLASHLOAN_EXECUTOR_RETURN);
   });
 
   it('Caller deposits 1000 DAI as collateral, Takes a WETH flashloan with mode = 0, does not approve the transfer of the funds', async () => {
@@ -354,7 +349,7 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
           '0x10',
           '0'
         )
-    ).to.be.revertedWith(SAFEERC20_LOWLEVEL_CALL);
+    ).to.be.reverted;
   });
 
   it('Check that reentrance borrow within flashloanSimple impacts rates', async () => {
@@ -397,7 +392,7 @@ makeSuite('Pool: Simple FlashLoan', (testEnv: TestEnv) => {
     const debtAfter = await debtToken.totalSupply();
     const availableAfter = await dai.balanceOf(aDai.address);
 
-    // More debt and less available -> higher util -> rates will increase
+    // More debt and less available -> higher usage-> rates will increase
     expect(debtAfter).to.be.gt(debtBefore);
     expect(availableAfter).to.be.lt(availableBefore);
 

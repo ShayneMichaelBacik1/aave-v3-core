@@ -1,17 +1,16 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
 import {IERC20} from '../../../dependencies/openzeppelin/contracts//IERC20.sol';
-import {SafeERC20} from '../../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {VersionedInitializable} from '../../libraries/aave-upgradeability/VersionedInitializable.sol';
+import {GPv2SafeERC20} from '../../../dependencies/gnosis/contracts/GPv2SafeERC20.sol';
 import {PercentageMath} from '../../libraries/math/PercentageMath.sol';
 import {WadRayMath} from '../../libraries/math/WadRayMath.sol';
 import {Helpers} from '../../libraries/helpers/Helpers.sol';
-import {Errors} from '../../libraries/helpers/Errors.sol';
 import {DataTypes} from '../../libraries/types/DataTypes.sol';
 import {ReserveLogic} from './ReserveLogic.sol';
 import {ValidationLogic} from './ValidationLogic.sol';
 import {GenericLogic} from './GenericLogic.sol';
+import {EModeLogic} from './EModeLogic.sol';
 import {IsolationModeLogic} from './IsolationModeLogic.sol';
 import {UserConfiguration} from '../../libraries/configuration/UserConfiguration.sol';
 import {ReserveConfiguration} from '../../libraries/configuration/ReserveConfiguration.sol';
@@ -32,7 +31,7 @@ library LiquidationLogic {
   using ReserveLogic for DataTypes.ReserveData;
   using UserConfiguration for DataTypes.UserConfigurationMap;
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
-  using SafeERC20 for IERC20;
+  using GPv2SafeERC20 for IERC20;
 
   // See `IPool` for descriptions
   event ReserveUsedAsCollateralEnabled(address indexed reserve, address indexed user);
@@ -47,14 +46,32 @@ library LiquidationLogic {
     bool receiveAToken
   );
 
-  uint256 internal constant DEFAULT_LIQUIDATION_CLOSE_FACTOR = 5000;
-  uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR = 10000;
-  uint256 public constant CLOSE_FACTOR_HF_THRESHOLD = 0.95 * 1e18;
+  /**
+   * @dev Default percentage of borrower's debt to be repaid in a liquidation.
+   * @dev Percentage applied when the users health factor is above `CLOSE_FACTOR_HF_THRESHOLD`
+   * Expressed in bps, a value of 0.5e4 results in 50.00%
+   */
+  uint256 internal constant DEFAULT_LIQUIDATION_CLOSE_FACTOR = 0.5e4;
+
+  /**
+   * @dev Maximum percentage of borrower's debt to be repaid in a liquidation
+   * @dev Percentage applied when the users health factor is below `CLOSE_FACTOR_HF_THRESHOLD`
+   * Expressed in bps, a value of 1e4 results in 100.00%
+   */
+  uint256 public constant MAX_LIQUIDATION_CLOSE_FACTOR = 1e4;
+
+  /**
+   * @dev This constant represents below which health factor value it is possible to liquidate
+   * an amount of debt corresponding to `MAX_LIQUIDATION_CLOSE_FACTOR`.
+   * A value of 0.95e18 results in 0.95
+   */
+  uint256 public constant CLOSE_FACTOR_HF_THRESHOLD = 0.95e18;
 
   struct LiquidationCallLocalVars {
     uint256 userCollateralBalance;
     uint256 userStableDebt;
     uint256 userVariableDebt;
+    uint256 userTotalDebt;
     uint256 maxLiquidatableDebt;
     uint256 actualDebtToLiquidate;
     uint256 maxCollateralToLiquidate;
@@ -64,18 +81,24 @@ library LiquidationLogic {
     uint256 healthFactor;
     uint256 liquidationProtocolFeeAmount;
     uint256 closeFactor;
-    IAToken collateralAtoken;
+    IAToken collateralAToken;
     IPriceOracleGetter oracle;
     DataTypes.ReserveCache debtReserveCache;
   }
 
   /**
-   * @dev Function to liquidate a position if its Health Factor drops below 1. The caller (liquidator)
+   * @notice Function to liquidate a position if its Health Factor drops below 1. The caller (liquidator)
    * covers `debtToCover` amount of debt of the user getting liquidated, and receives
-   * a proportionally amount of the `collateralAsset` plus a bonus to cover market risk
+   * a proportional amount of the `collateralAsset` plus a bonus to cover market risk
+   * @dev Emits the `LiquidationCall()` event
+   * @param reservesData The state of all the reserves
+   * @param usersConfig The users configuration mapping that track the supplied/borrowed assets
+   * @param reservesList The addresses of all the active reserves
+   * @param eModeCategories The configuration of all the efficiency mode categories
+   * @param params The additional parameters needed to execute the liquidation function
    **/
   function executeLiquidationCall(
-    mapping(address => DataTypes.ReserveData) storage reserves,
+    mapping(address => DataTypes.ReserveData) storage reservesData,
     mapping(address => DataTypes.UserConfigurationMap) storage usersConfig,
     mapping(uint256 => address) storage reservesList,
     mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
@@ -83,20 +106,21 @@ library LiquidationLogic {
   ) external {
     LiquidationCallLocalVars memory vars;
 
-    DataTypes.ReserveData storage collateralReserve = reserves[params.collateralAsset];
-    DataTypes.ReserveData storage debtReserve = reserves[params.debtAsset];
+    DataTypes.ReserveData storage collateralReserve = reservesData[params.collateralAsset];
+    DataTypes.ReserveData storage debtReserve = reservesData[params.debtAsset];
     DataTypes.UserConfigurationMap storage userConfig = usersConfig[params.user];
     vars.debtReserveCache = debtReserve.cache();
     debtReserve.updateState(vars.debtReserveCache);
 
     (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(
       params.user,
-      debtReserve
+      vars.debtReserveCache
     );
+    vars.userTotalDebt = vars.userStableDebt + vars.userVariableDebt;
     vars.oracle = IPriceOracleGetter(params.priceOracle);
 
     (, , , , vars.healthFactor, ) = GenericLogic.calculateUserAccountData(
-      reserves,
+      reservesData,
       reservesList,
       eModeCategories,
       DataTypes.CalculateUserAccountDataParams({
@@ -113,30 +137,31 @@ library LiquidationLogic {
       collateralReserve,
       DataTypes.ValidateLiquidationCallParams({
         debtReserveCache: vars.debtReserveCache,
-        totalDebt: vars.userStableDebt + vars.userVariableDebt,
+        totalDebt: vars.userTotalDebt,
         healthFactor: vars.healthFactor,
         priceOracleSentinel: params.priceOracleSentinel
       })
     );
 
-    vars.collateralAtoken = IAToken(collateralReserve.aTokenAddress);
-    vars.userCollateralBalance = vars.collateralAtoken.balanceOf(params.user);
+    vars.collateralAToken = IAToken(collateralReserve.aTokenAddress);
+    vars.userCollateralBalance = vars.collateralAToken.balanceOf(params.user);
 
     vars.closeFactor = vars.healthFactor > CLOSE_FACTOR_HF_THRESHOLD
       ? DEFAULT_LIQUIDATION_CLOSE_FACTOR
       : MAX_LIQUIDATION_CLOSE_FACTOR;
 
-    vars.maxLiquidatableDebt = (vars.userStableDebt + vars.userVariableDebt).percentMul(
-      vars.closeFactor
-    );
+    vars.maxLiquidatableDebt = vars.userTotalDebt.percentMul(vars.closeFactor);
 
     vars.actualDebtToLiquidate = params.debtToCover > vars.maxLiquidatableDebt
       ? vars.maxLiquidatableDebt
       : params.debtToCover;
 
-    vars.liquidationBonus = params.userEModeCategory == 0
-      ? collateralReserve.configuration.getLiquidationBonus()
-      : eModeCategories[params.userEModeCategory].liquidationBonus;
+    vars.liquidationBonus = EModeLogic.isInEModeCategory(
+      params.userEModeCategory,
+      collateralReserve.configuration.getEModeCategory()
+    )
+      ? eModeCategories[params.userEModeCategory].liquidationBonus
+      : collateralReserve.configuration.getLiquidationBonus();
 
     (
       vars.maxCollateralToLiquidate,
@@ -161,6 +186,10 @@ library LiquidationLogic {
       vars.actualDebtToLiquidate = vars.debtAmountNeeded;
     }
 
+    if (vars.userTotalDebt == vars.actualDebtToLiquidate) {
+      userConfig.setBorrowing(debtReserve.id, false);
+    }
+
     if (vars.userVariableDebt >= vars.actualDebtToLiquidate) {
       vars.debtReserveCache.nextScaledVariableDebt = IVariableDebtToken(
         vars.debtReserveCache.variableDebtTokenAddress
@@ -171,7 +200,7 @@ library LiquidationLogic {
         );
     } else {
       // If the user doesn't have variable debt, no need to try to burn variable debt tokens
-      if (vars.userVariableDebt > 0) {
+      if (vars.userVariableDebt != 0) {
         vars.debtReserveCache.nextScaledVariableDebt = IVariableDebtToken(
           vars.debtReserveCache.variableDebtTokenAddress
         ).burn(params.user, vars.userVariableDebt, vars.debtReserveCache.nextVariableBorrowIndex);
@@ -192,7 +221,7 @@ library LiquidationLogic {
     );
 
     IsolationModeLogic.updateIsolatedDebtIfIsolated(
-      reserves,
+      reservesData,
       reservesList,
       userConfig,
       vars.debtReserveCache,
@@ -200,8 +229,8 @@ library LiquidationLogic {
     );
 
     if (params.receiveAToken) {
-      vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAtoken).balanceOf(msg.sender);
-      vars.collateralAtoken.transferOnLiquidation(
+      vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAToken).balanceOf(msg.sender);
+      vars.collateralAToken.transferOnLiquidation(
         params.user,
         msg.sender,
         vars.maxCollateralToLiquidate
@@ -211,7 +240,7 @@ library LiquidationLogic {
         DataTypes.UserConfigurationMap storage liquidatorConfig = usersConfig[msg.sender];
         if (
           ValidationLogic.validateUseAsCollateral(
-            reserves,
+            reservesData,
             reservesList,
             liquidatorConfig,
             params.collateralAsset
@@ -232,7 +261,7 @@ library LiquidationLogic {
       );
 
       // Burn the equivalent amount of aToken, sending the underlying to the liquidator
-      vars.collateralAtoken.burn(
+      vars.collateralAToken.burn(
         params.user,
         msg.sender,
         vars.maxCollateralToLiquidate,
@@ -241,10 +270,10 @@ library LiquidationLogic {
     }
 
     // Transfer fee to treasury if it is non-zero
-    if (vars.liquidationProtocolFeeAmount > 0) {
-      vars.collateralAtoken.transferOnLiquidation(
+    if (vars.liquidationProtocolFeeAmount != 0) {
+      vars.collateralAToken.transferOnLiquidation(
         params.user,
-        vars.collateralAtoken.RESERVE_TREASURY_ADDRESS(),
+        vars.collateralAToken.RESERVE_TREASURY_ADDRESS(),
         vars.liquidationProtocolFeeAmount
       );
     }
@@ -346,7 +375,7 @@ library LiquidationLogic {
       .configuration
       .getLiquidationProtocolFee();
 
-    // This is the base collateral to liqudate based on the given debt to cover
+    // This is the base collateral to liquidate based on the given debt to cover
     vars.baseCollateral =
       ((vars.debtAssetPrice * debtToCover * vars.collateralAssetUnit)) /
       (vars.collateralPrice * vars.debtAssetUnit);
@@ -362,7 +391,7 @@ library LiquidationLogic {
       vars.debtAmountNeeded = debtToCover;
     }
 
-    if (vars.liquidationProtocolFeePercentage > 0) {
+    if (vars.liquidationProtocolFeePercentage != 0) {
       vars.bonusCollateral =
         vars.collateralAmount -
         vars.collateralAmount.percentDiv(liquidationBonus);
@@ -376,7 +405,8 @@ library LiquidationLogic {
         vars.debtAmountNeeded,
         vars.liquidationProtocolFee
       );
+    } else {
+      return (vars.collateralAmount, vars.debtAmountNeeded, 0);
     }
-    return (vars.collateralAmount, vars.debtAmountNeeded, 0);
   }
 }

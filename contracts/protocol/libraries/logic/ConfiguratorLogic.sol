@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
 import {IPool} from '../../../interfaces/IPool.sol';
@@ -13,12 +13,12 @@ import {ConfiguratorInputTypes} from '../types/ConfiguratorInputTypes.sol';
 /**
  * @title ConfiguratorLogic library
  * @author Aave
- * @notice Implements the functions to initialize reserves and update atokens/debt tokens
+ * @notice Implements the functions to initialize reserves and update aTokens and debtTokens
  */
 library ConfiguratorLogic {
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
-  // See `IPoolConfigurator` for description
+  // See `IPoolConfigurator` for descriptions
   event ReserveInitialized(
     address indexed asset,
     address indexed aToken,
@@ -26,22 +26,16 @@ library ConfiguratorLogic {
     address variableDebtToken,
     address interestRateStrategyAddress
   );
-
-  // See `IPoolConfigurator` for description
   event ATokenUpgraded(
     address indexed asset,
     address indexed proxy,
     address indexed implementation
   );
-
-  // See `IPoolConfigurator` for description
   event StableDebtTokenUpgraded(
     address indexed asset,
     address indexed proxy,
     address indexed implementation
   );
-
-  // See `IPoolConfigurator` for description
   event VariableDebtTokenUpgraded(
     address indexed asset,
     address indexed proxy,
@@ -61,9 +55,10 @@ library ConfiguratorLogic {
       input.aTokenImpl,
       abi.encodeWithSelector(
         IInitializableAToken.initialize.selector,
+        pool,
         input.treasury,
         input.underlyingAsset,
-        IAaveIncentivesController(input.incentivesController),
+        input.incentivesController,
         input.underlyingAssetDecimals,
         input.aTokenName,
         input.aTokenSymbol,
@@ -75,8 +70,9 @@ library ConfiguratorLogic {
       input.stableDebtTokenImpl,
       abi.encodeWithSelector(
         IInitializableDebtToken.initialize.selector,
+        pool,
         input.underlyingAsset,
-        IAaveIncentivesController(input.incentivesController),
+        input.incentivesController,
         input.underlyingAssetDecimals,
         input.stableDebtTokenName,
         input.stableDebtTokenSymbol,
@@ -88,8 +84,9 @@ library ConfiguratorLogic {
       input.variableDebtTokenImpl,
       abi.encodeWithSelector(
         IInitializableDebtToken.initialize.selector,
+        pool,
         input.underlyingAsset,
-        IAaveIncentivesController(input.incentivesController),
+        input.incentivesController,
         input.underlyingAssetDecimals,
         input.variableDebtTokenName,
         input.variableDebtTokenSymbol,
@@ -105,9 +102,7 @@ library ConfiguratorLogic {
       input.interestRateStrategyAddress
     );
 
-    DataTypes.ReserveConfigurationMap memory currentConfig = pool.getConfiguration(
-      input.underlyingAsset
-    );
+    DataTypes.ReserveConfigurationMap memory currentConfig = DataTypes.ReserveConfigurationMap(0);
 
     currentConfig.setDecimals(input.underlyingAssetDecimals);
 
@@ -115,7 +110,7 @@ library ConfiguratorLogic {
     currentConfig.setPaused(false);
     currentConfig.setFrozen(false);
 
-    pool.setConfiguration(input.underlyingAsset, currentConfig.data);
+    pool.setConfiguration(input.underlyingAsset, currentConfig);
 
     emit ReserveInitialized(
       input.underlyingAsset,
@@ -142,6 +137,7 @@ library ConfiguratorLogic {
 
     bytes memory encodedCall = abi.encodeWithSelector(
       IInitializableAToken.initialize.selector,
+      cachedPool,
       input.treasury,
       input.asset,
       input.incentivesController,
@@ -172,6 +168,7 @@ library ConfiguratorLogic {
 
     bytes memory encodedCall = abi.encodeWithSelector(
       IInitializableDebtToken.initialize.selector,
+      cachedPool,
       input.asset,
       input.incentivesController,
       decimals,
@@ -209,6 +206,7 @@ library ConfiguratorLogic {
 
     bytes memory encodedCall = abi.encodeWithSelector(
       IInitializableDebtToken.initialize.selector,
+      cachedPool,
       input.asset,
       input.incentivesController,
       decimals,
@@ -251,7 +249,7 @@ library ConfiguratorLogic {
 
   /**
    * @notice Upgrades the implementation and makes call to the proxy
-   * @dev In the current plementation the call is used to initialize the new implementation.
+   * @dev The call is used to initialize the new implementation.
    * @param proxyAddress The address of the proxy
    * @param implementation The address of the new implementation
    * @param  initParams The parameters to the call after the upgrade

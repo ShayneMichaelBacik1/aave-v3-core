@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
 import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {SafeERC20} from '../../../dependencies/openzeppelin/contracts/SafeERC20.sol';
+import {GPv2SafeERC20} from '../../../dependencies/gnosis/contracts/GPv2SafeERC20.sol';
+import {SafeCast} from '../../../dependencies/openzeppelin/contracts/SafeCast.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
 import {DataTypes} from '../types/DataTypes.sol';
 import {UserConfiguration} from '../configuration/UserConfiguration.sol';
@@ -10,7 +11,6 @@ import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
 import {WadRayMath} from '../math/WadRayMath.sol';
 import {PercentageMath} from '../math/PercentageMath.sol';
 import {Errors} from '../helpers/Errors.sol';
-import {Helpers} from '../helpers/Helpers.sol';
 import {ValidationLogic} from './ValidationLogic.sol';
 import {ReserveLogic} from './ReserveLogic.sol';
 
@@ -21,7 +21,8 @@ library BridgeLogic {
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
   using WadRayMath for uint256;
   using PercentageMath for uint256;
-  using SafeERC20 for IERC20;
+  using SafeCast for uint256;
+  using GPv2SafeERC20 for IERC20;
 
   // See `IPool` for descriptions
   event ReserveUsedAsCollateralEnabled(address indexed reserve, address indexed user);
@@ -30,7 +31,7 @@ library BridgeLogic {
     address user,
     address indexed onBehalfOf,
     uint256 amount,
-    uint16 indexed referral
+    uint16 indexed referralCode
   );
   event BackUnbacked(address indexed reserve, address indexed backer, uint256 amount, uint256 fee);
 
@@ -39,26 +40,25 @@ library BridgeLogic {
    * @dev Essentially a supply without transferring the underlying.
    * @dev Emits the `MintUnbacked` event
    * @dev Emits the `ReserveUsedAsCollateralEnabled` if asset is set as collateral
-   * @param reserves The state of all the reserves
-   * @param reservesList The list of the addresses of all the active reserves
-   * @param reserve The reserve to mint to
+   * @param reservesData The state of all the reserves
+   * @param reservesList The addresses of all the active reserves
    * @param userConfig The user configuration mapping that tracks the supplied/borrowed assets
-   * @param asset The address of the asset
+   * @param asset The address of the underlying asset to mint aTokens of
    * @param amount The amount to mint
    * @param onBehalfOf The address that will receive the aTokens
    * @param referralCode Code used to register the integrator originating the operation, for potential rewards.
    *   0 if the action is executed directly by the user, without any middle-man
    **/
   function executeMintUnbacked(
-    mapping(address => DataTypes.ReserveData) storage reserves,
+    mapping(address => DataTypes.ReserveData) storage reservesData,
     mapping(uint256 => address) storage reservesList,
-    DataTypes.ReserveData storage reserve,
     DataTypes.UserConfigurationMap storage userConfig,
     address asset,
     uint256 amount,
     address onBehalfOf,
     uint16 referralCode
   ) external {
+    DataTypes.ReserveData storage reserve = reservesData[asset];
     DataTypes.ReserveCache memory reserveCache = reserve.cache();
 
     reserve.updateState(reserveCache);
@@ -68,23 +68,21 @@ library BridgeLogic {
     uint256 unbackedMintCap = reserveCache.reserveConfiguration.getUnbackedMintCap();
     uint256 reserveDecimals = reserveCache.reserveConfiguration.getDecimals();
 
-    uint256 unbacked = reserve.unbacked = reserve.unbacked + Helpers.castUint128(amount);
+    uint256 unbacked = reserve.unbacked += amount.toUint128();
 
-    require(
-      unbacked <= unbackedMintCap * (10**reserveDecimals),
-      Errors.VL_UNBACKED_MINT_CAP_EXCEEDED
-    );
+    require(unbacked <= unbackedMintCap * (10**reserveDecimals), Errors.UNBACKED_MINT_CAP_EXCEEDED);
 
     reserve.updateInterestRates(reserveCache, asset, 0, 0);
 
     bool isFirstSupply = IAToken(reserveCache.aTokenAddress).mint(
+      msg.sender,
       onBehalfOf,
       amount,
       reserveCache.nextLiquidityIndex
     );
 
     if (isFirstSupply) {
-      if (ValidationLogic.validateUseAsCollateral(reserves, reservesList, userConfig, asset)) {
+      if (ValidationLogic.validateUseAsCollateral(reservesData, reservesList, userConfig, asset)) {
         userConfig.setUsingAsCollateral(reserve.id, true);
         emit ReserveUsedAsCollateralEnabled(asset, onBehalfOf);
       }
@@ -124,11 +122,9 @@ library BridgeLogic {
       feeToLP
     );
 
-    reserve.accruedToTreasury += Helpers.castUint128(
-      feeToProtocol.rayDiv(reserveCache.nextLiquidityIndex)
-    );
+    reserve.accruedToTreasury += feeToProtocol.rayDiv(reserveCache.nextLiquidityIndex).toUint128();
 
-    reserve.unbacked -= Helpers.castUint128(backingAmount);
+    reserve.unbacked -= backingAmount.toUint128();
     reserve.updateInterestRates(reserveCache, asset, added, 0);
 
     IERC20(asset).safeTransferFrom(msg.sender, reserveCache.aTokenAddress, added);

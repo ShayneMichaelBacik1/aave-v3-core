@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
 import {WadRayMath} from '../../protocol/libraries/math/WadRayMath.sol';
 
 contract WadRayMathWrapper {
   function wad() public pure returns (uint256) {
-    return WadRayMath.wad();
+    return WadRayMath.WAD;
   }
 
   function ray() public pure returns (uint256) {
@@ -13,11 +13,11 @@ contract WadRayMathWrapper {
   }
 
   function halfRay() public pure returns (uint256) {
-    return WadRayMath.halfRay();
+    return WadRayMath.HALF_RAY;
   }
 
   function halfWad() public pure returns (uint256) {
-    return WadRayMath.halfWad();
+    return WadRayMath.HALF_WAD;
   }
 
   function wadMul(uint256 a, uint256 b) public pure returns (uint256) {

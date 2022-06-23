@@ -1,13 +1,9 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
 
 import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {SafeERC20} from '../../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {IStableDebtToken} from '../../../interfaces/IStableDebtToken.sol';
-import {IVariableDebtToken} from '../../../interfaces/IVariableDebtToken.sol';
-import {IFlashLoanReceiver} from '../../../flashloan/interfaces/IFlashLoanReceiver.sol';
+import {GPv2SafeERC20} from '../../../dependencies/gnosis/contracts/GPv2SafeERC20.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
-import {Helpers} from '../helpers/Helpers.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {UserConfiguration} from '../configuration/UserConfiguration.sol';
 import {DataTypes} from '../types/DataTypes.sol';
@@ -25,7 +21,7 @@ import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
 library SupplyLogic {
   using ReserveLogic for DataTypes.ReserveCache;
   using ReserveLogic for DataTypes.ReserveData;
-  using SafeERC20 for IERC20;
+  using GPv2SafeERC20 for IERC20;
   using UserConfiguration for DataTypes.UserConfigurationMap;
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
   using WadRayMath for uint256;
@@ -45,19 +41,21 @@ library SupplyLogic {
 
   /**
    * @notice Implements the supply feature. Through `supply()`, users supply assets to the Aave protocol.
-   * @dev  Emits the `Supply()` event. In the first supply action, `ReserveUsedAsCollateralEnabled()` is emitted, if the asset can be enabled as collateral.
-   * @param reserves The state of all the reserves
+   * @dev Emits the `Supply()` event.
+   * @dev In the first supply action, `ReserveUsedAsCollateralEnabled()` is emitted, if the asset can be enabled as
+   * collateral.
+   * @param reservesData The state of all the reserves
    * @param reservesList The addresses of all the active reserves
    * @param userConfig The user configuration mapping that tracks the supplied/borrowed assets
    * @param params The additional parameters needed to execute the supply function
    */
   function executeSupply(
-    mapping(address => DataTypes.ReserveData) storage reserves,
+    mapping(address => DataTypes.ReserveData) storage reservesData,
     mapping(uint256 => address) storage reservesList,
     DataTypes.UserConfigurationMap storage userConfig,
     DataTypes.ExecuteSupplyParams memory params
   ) external {
-    DataTypes.ReserveData storage reserve = reserves[params.asset];
+    DataTypes.ReserveData storage reserve = reservesData[params.asset];
     DataTypes.ReserveCache memory reserveCache = reserve.cache();
 
     reserve.updateState(reserveCache);
@@ -69,6 +67,7 @@ library SupplyLogic {
     IERC20(params.asset).safeTransferFrom(msg.sender, reserveCache.aTokenAddress, params.amount);
 
     bool isFirstSupply = IAToken(reserveCache.aTokenAddress).mint(
+      msg.sender,
       params.onBehalfOf,
       params.amount,
       reserveCache.nextLiquidityIndex
@@ -76,7 +75,12 @@ library SupplyLogic {
 
     if (isFirstSupply) {
       if (
-        ValidationLogic.validateUseAsCollateral(reserves, reservesList, userConfig, params.asset)
+        ValidationLogic.validateUseAsCollateral(
+          reservesData,
+          reservesList,
+          userConfig,
+          params.asset
+        )
       ) {
         userConfig.setUsingAsCollateral(reserve.id, true);
         emit ReserveUsedAsCollateralEnabled(params.asset, params.onBehalfOf);
@@ -87,9 +91,11 @@ library SupplyLogic {
   }
 
   /**
-   * @notice Implements the withdraw feature. Through `withdraw()`, users redeem their aTokens for the underlying asset previously supplied in the Aave protocol.
-   * @dev  Emits the `Withdraw()` event. If the user withdraws everything, `ReserveUsedAsCollateralDisabled()` is emitted.
-   * @param reserves The state of all the reserves
+   * @notice Implements the withdraw feature. Through `withdraw()`, users redeem their aTokens for the underlying asset
+   * previously supplied in the Aave protocol.
+   * @dev Emits the `Withdraw()` event.
+   * @dev If the user withdraws everything, `ReserveUsedAsCollateralDisabled()` is emitted.
+   * @param reservesData The state of all the reserves
    * @param reservesList The addresses of all the active reserves
    * @param eModeCategories The configuration of all the efficiency mode categories
    * @param userConfig The user configuration mapping that tracks the supplied/borrowed assets
@@ -97,13 +103,13 @@ library SupplyLogic {
    * @return The actual amount withdrawn
    */
   function executeWithdraw(
-    mapping(address => DataTypes.ReserveData) storage reserves,
+    mapping(address => DataTypes.ReserveData) storage reservesData,
     mapping(uint256 => address) storage reservesList,
     mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
     DataTypes.UserConfigurationMap storage userConfig,
     DataTypes.ExecuteWithdrawParams memory params
   ) external returns (uint256) {
-    DataTypes.ReserveData storage reserve = reserves[params.asset];
+    DataTypes.ReserveData storage reserve = reservesData[params.asset];
     DataTypes.ReserveCache memory reserveCache = reserve.cache();
 
     reserve.updateState(reserveCache);
@@ -132,7 +138,7 @@ library SupplyLogic {
     if (userConfig.isUsingAsCollateral(reserve.id)) {
       if (userConfig.isBorrowingAny()) {
         ValidationLogic.validateHFAndLtv(
-          reserves,
+          reservesData,
           reservesList,
           eModeCategories,
           userConfig,
@@ -156,34 +162,37 @@ library SupplyLogic {
   }
 
   /**
-   * @notice Validates a transfer of aTokens. The sender is subjected to health factor validation to avoid collateralization constraints violation.
-   * @dev  Emits the `ReserveUsedAsCollateralEnabled()` event for the `to` account, if the asset can be activated as collateral. In case the `from` user transfers everything, `ReserveUsedAsCollateralDisabled()` is emitted for `from`.
-   * @param reserves The state of all the reserves
+   * @notice Validates a transfer of aTokens. The sender is subjected to health factor validation to avoid
+   * collateralization constraints violation.
+   * @dev Emits the `ReserveUsedAsCollateralEnabled()` event for the `to` account, if the asset is being activated as
+   * collateral.
+   * @dev In case the `from` user transfers everything, `ReserveUsedAsCollateralDisabled()` is emitted for `from`.
+   * @param reservesData The state of all the reserves
    * @param reservesList The addresses of all the active reserves
    * @param eModeCategories The configuration of all the efficiency mode categories
    * @param usersConfig The users configuration mapping that track the supplied/borrowed assets
    * @param params The additional parameters needed to execute the finalizeTransfer function
    */
   function executeFinalizeTransfer(
-    mapping(address => DataTypes.ReserveData) storage reserves,
+    mapping(address => DataTypes.ReserveData) storage reservesData,
     mapping(uint256 => address) storage reservesList,
     mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
     mapping(address => DataTypes.UserConfigurationMap) storage usersConfig,
     DataTypes.FinalizeTransferParams memory params
   ) external {
-    DataTypes.ReserveData storage reserve = reserves[params.asset];
+    DataTypes.ReserveData storage reserve = reservesData[params.asset];
 
-    ValidationLogic.validateTransfer(reserves[params.asset]);
+    ValidationLogic.validateTransfer(reserve);
 
-    uint256 reserveId = reserves[params.asset].id;
+    uint256 reserveId = reserve.id;
 
-    if (params.from != params.to) {
+    if (params.from != params.to && params.amount != 0) {
       DataTypes.UserConfigurationMap storage fromConfig = usersConfig[params.from];
 
       if (fromConfig.isUsingAsCollateral(reserveId)) {
         if (fromConfig.isBorrowingAny()) {
           ValidationLogic.validateHFAndLtv(
-            reserves,
+            reservesData,
             reservesList,
             eModeCategories,
             usersConfig[params.from],
@@ -194,18 +203,23 @@ library SupplyLogic {
             params.fromEModeCategory
           );
         }
-        if (params.balanceFromBefore - params.amount == 0) {
+        if (params.balanceFromBefore == params.amount) {
           fromConfig.setUsingAsCollateral(reserveId, false);
           emit ReserveUsedAsCollateralDisabled(params.asset, params.from);
         }
       }
 
-      if (params.balanceToBefore == 0 && params.amount != 0) {
+      if (params.balanceToBefore == 0) {
         DataTypes.UserConfigurationMap storage toConfig = usersConfig[params.to];
         if (
-          ValidationLogic.validateUseAsCollateral(reserves, reservesList, toConfig, params.asset)
+          ValidationLogic.validateUseAsCollateral(
+            reservesData,
+            reservesList,
+            toConfig,
+            params.asset
+          )
         ) {
-          toConfig.setUsingAsCollateral(reserve.id, true);
+          toConfig.setUsingAsCollateral(reserveId, true);
           emit ReserveUsedAsCollateralEnabled(params.asset, params.to);
         }
       }
@@ -213,10 +227,12 @@ library SupplyLogic {
   }
 
   /**
-   * @notice Executes the 'set as collateral' feature. A user can choose to activate or deactivate an asset as collateral at any point in time. Deactivating an asset as collateral
-   * is subjected to the usual health factor checks to ensure collateralization.
-   * @dev  Emits the `ReserveUsedAsCollateralEnabled()` event if the asset can be activated as collateral. In case the asset is being deactivated as collateral, `ReserveUsedAsCollateralDisabled()` is emitted.
-   * @param reserves The state of all the reserves
+   * @notice Executes the 'set as collateral' feature. A user can choose to activate or deactivate an asset as
+   * collateral at any point in time. Deactivating an asset as collateral is subjected to the usual health factor
+   * checks to ensure collateralization.
+   * @dev Emits the `ReserveUsedAsCollateralEnabled()` event if the asset can be activated as collateral.
+   * @dev In case the asset is being deactivated as collateral, `ReserveUsedAsCollateralDisabled()` is emitted.
+   * @param reservesData The state of all the reserves
    * @param reservesList The addresses of all the active reserves
    * @param eModeCategories The configuration of all the efficiency mode categories
    * @param userConfig The users configuration mapping that track the supplied/borrowed assets
@@ -227,7 +243,7 @@ library SupplyLogic {
    * @param userEModeCategory The eMode category chosen by the user
    */
   function executeUseReserveAsCollateral(
-    mapping(address => DataTypes.ReserveData) storage reserves,
+    mapping(address => DataTypes.ReserveData) storage reservesData,
     mapping(uint256 => address) storage reservesList,
     mapping(uint8 => DataTypes.EModeCategory) storage eModeCategories,
     DataTypes.UserConfigurationMap storage userConfig,
@@ -237,7 +253,7 @@ library SupplyLogic {
     address priceOracle,
     uint8 userEModeCategory
   ) external {
-    DataTypes.ReserveData storage reserve = reserves[asset];
+    DataTypes.ReserveData storage reserve = reservesData[asset];
     DataTypes.ReserveCache memory reserveCache = reserve.cache();
 
     uint256 userBalance = IERC20(reserveCache.aTokenAddress).balanceOf(msg.sender);
@@ -248,8 +264,8 @@ library SupplyLogic {
 
     if (useAsCollateral) {
       require(
-        ValidationLogic.validateUseAsCollateral(reserves, reservesList, userConfig, asset),
-        Errors.SL_USER_IN_ISOLATION_MODE
+        ValidationLogic.validateUseAsCollateral(reservesData, reservesList, userConfig, asset),
+        Errors.USER_IN_ISOLATION_MODE
       );
 
       userConfig.setUsingAsCollateral(reserve.id, true);
@@ -257,7 +273,7 @@ library SupplyLogic {
     } else {
       userConfig.setUsingAsCollateral(reserve.id, false);
       ValidationLogic.validateHFAndLtv(
-        reserves,
+        reservesData,
         reservesList,
         eModeCategories,
         userConfig,

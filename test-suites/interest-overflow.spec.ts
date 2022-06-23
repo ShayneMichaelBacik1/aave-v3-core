@@ -3,7 +3,7 @@ import { BigNumberish, BigNumber, utils } from 'ethers';
 import { impersonateAccountsHardhat } from '../helpers/misc-utils';
 import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../helpers/constants';
 import { ProtocolErrors, RateMode } from '../helpers/types';
-import { getFirstSigner } from '@aave/deploy-v3/dist/helpers/utilities/tx';
+import { getFirstSigner } from '@aave/deploy-v3/dist/helpers/utilities/signer';
 import { topUpNonPayableWithEther } from './helpers/utils/funds';
 import { makeSuite } from './helpers/make-suite';
 import { convertToCurrencyDecimals } from '../helpers/contracts-helpers';
@@ -23,7 +23,7 @@ import { evmSnapshot, evmRevert, increaseTime } from '@aave/deploy-v3';
 
 declare var hre: HardhatRuntimeEnvironment;
 makeSuite('Interest Rate and Index Overflow', (testEnv) => {
-  const { HLP_UINT128_OVERFLOW } = ProtocolErrors;
+  const { SAFECAST_UINT128_OVERFLOW } = ProtocolErrors;
 
   let mockToken: MintableERC20;
   let mockStableDebtToken: StableDebtToken;
@@ -64,7 +64,6 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
       underlyingAsset: string;
       treasury: string;
       incentivesController: string;
-      underlyingAssetName: string;
       aTokenName: string;
       aTokenSymbol: string;
       variableDebtTokenName: string;
@@ -82,7 +81,6 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
         underlyingAsset: mockToken.address,
         treasury: ZERO_ADDRESS,
         incentivesController: ZERO_ADDRESS,
-        underlyingAssetName: 'MOCK',
         aTokenName: 'AMOCK',
         aTokenSymbol: 'AMOCK',
         variableDebtTokenName: 'VMOCK',
@@ -180,7 +178,7 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
           user.address,
           0
         )
-    ).to.be.revertedWith(HLP_UINT128_OVERFLOW);
+    ).to.be.revertedWith(SAFECAST_UINT128_OVERFLOW);
   });
 
   it('ReserveLogic `updateInterestRates` with nextStableRate > type(uint128).max (revert expected)', async () => {
@@ -205,7 +203,7 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
           user.address,
           0
         )
-    ).to.be.revertedWith(HLP_UINT128_OVERFLOW);
+    ).to.be.revertedWith(SAFECAST_UINT128_OVERFLOW);
   });
 
   it('ReserveLogic `updateInterestRates` with nextVariableRate > type(uint128).max (revert expected)', async () => {
@@ -230,7 +228,7 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
           user.address,
           0
         )
-    ).to.be.revertedWith(HLP_UINT128_OVERFLOW);
+    ).to.be.revertedWith(SAFECAST_UINT128_OVERFLOW);
   });
 
   it('ReserveLogic `_updateIndexes` with nextLiquidityIndex > type(uint128).max (revert expected)', async () => {
@@ -295,7 +293,7 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
           user.address,
           0
         )
-    ).to.be.revertedWith(HLP_UINT128_OVERFLOW);
+    ).to.be.revertedWith(SAFECAST_UINT128_OVERFLOW);
   });
 
   it('ReserveLogic `_updateIndexes` with nextVariableBorrowIndex > type(uint128).max (revert expected)', async () => {
@@ -355,7 +353,7 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
           user.address,
           0
         )
-    ).to.be.revertedWith(HLP_UINT128_OVERFLOW);
+    ).to.be.revertedWith(SAFECAST_UINT128_OVERFLOW);
   });
 
   it('ReserveLogic `cumulateToLiquidityIndex` with liquidityIndex > type(uint128).max (revert expected)', async () => {
@@ -391,7 +389,7 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
           '0x00',
           0
         )
-    ).to.be.revertedWith(HLP_UINT128_OVERFLOW);
+    ).to.be.revertedWith(SAFECAST_UINT128_OVERFLOW);
   });
 
   it('StableDebtToken `mint` with nextStableRate > type(uint128).max (revert expected)', async () => {
@@ -417,6 +415,6 @@ makeSuite('Interest Rate and Index Overflow', (testEnv) => {
           await convertToCurrencyDecimals(mockStableDebtToken.address, '100'),
           rate
         )
-    ).to.be.revertedWith(HLP_UINT128_OVERFLOW);
+    ).to.be.revertedWith(SAFECAST_UINT128_OVERFLOW);
   });
 });

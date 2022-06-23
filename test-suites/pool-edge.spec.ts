@@ -1,37 +1,45 @@
 import { expect } from 'chai';
-import { BigNumberish, utils } from 'ethers';
+import { BigNumber, BigNumberish, utils } from 'ethers';
 import { impersonateAccountsHardhat } from '../helpers/misc-utils';
 import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../helpers/constants';
 import { deployMintableERC20 } from '@aave/deploy-v3/dist/helpers/contract-deployments';
 import { ProtocolErrors } from '../helpers/types';
-import { MockPoolInherited__factory } from '../types/factories/MockPoolInherited__factory';
-import { getFirstSigner } from '@aave/deploy-v3/dist/helpers/utilities/tx';
+import { getFirstSigner } from '@aave/deploy-v3/dist/helpers/utilities/signer';
 import { topUpNonPayableWithEther } from './helpers/utils/funds';
 import { makeSuite, TestEnv } from './helpers/make-suite';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { evmSnapshot, evmRevert } from '@aave/deploy-v3';
+import { evmSnapshot, evmRevert, getPoolLibraries } from '@aave/deploy-v3';
 import {
+  MockPoolInherited__factory,
   MockReserveInterestRateStrategy__factory,
   StableDebtToken__factory,
   VariableDebtToken__factory,
   AToken__factory,
   Pool__factory,
+  InitializableImmutableAdminUpgradeabilityProxy,
+  ERC20__factory,
 } from '../types';
 
 declare var hre: HardhatRuntimeEnvironment;
 
 makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
   const {
-    P_NO_MORE_RESERVES_ALLOWED,
-    P_CALLER_MUST_BE_AN_ATOKEN,
-    P_NOT_CONTRACT,
-    P_CALLER_NOT_POOL_CONFIGURATOR,
-    RL_RESERVE_ALREADY_INITIALIZED,
-    PC_INVALID_CONFIGURATION,
+    NO_MORE_RESERVES_ALLOWED,
+    CALLER_NOT_ATOKEN,
+    NOT_CONTRACT,
+    CALLER_NOT_POOL_CONFIGURATOR,
+    RESERVE_ALREADY_INITIALIZED,
+    INVALID_ADDRESSES_PROVIDER,
+    RESERVE_ALREADY_ADDED,
+    DEBT_CEILING_NOT_ZERO,
+    ASSET_NOT_LISTED,
+    ZERO_ADDRESS_NOT_VALID,
   } = ProtocolErrors;
 
-  const MAX_STABLE_RATE_BORROW_SIZE_PERCENT = '2500';
-  const MAX_NUMBER_RESERVES = '128';
+  const MAX_STABLE_RATE_BORROW_SIZE_PERCENT = 2500;
+  const MAX_NUMBER_RESERVES = 128;
+
+  const POOL_ID = utils.formatBytes32String('POOL');
 
   let snap: string;
 
@@ -41,6 +49,88 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
 
   afterEach(async () => {
     await evmRevert(snap);
+  });
+
+  it('Drop asset while user uses it as collateral, ensure that borrowing power is lowered', async () => {
+    const {
+      addressesProvider,
+      poolAdmin,
+      dai,
+      users: [user0],
+    } = testEnv;
+    const { deployer: deployerName } = await hre.getNamedAccounts();
+
+    // Deploy the mock Pool with a `dropReserve` skipping the checks
+    const NEW_POOL_IMPL_ARTIFACT = await hre.deployments.deploy('MockPoolInheritedDropper', {
+      contract: 'MockPoolInherited',
+      from: deployerName,
+      args: [addressesProvider.address],
+      libraries: {
+        SupplyLogic: (await hre.deployments.get('SupplyLogic')).address,
+        BorrowLogic: (await hre.deployments.get('BorrowLogic')).address,
+        LiquidationLogic: (await hre.deployments.get('LiquidationLogic')).address,
+        EModeLogic: (await hre.deployments.get('EModeLogic')).address,
+        BridgeLogic: (await hre.deployments.get('BridgeLogic')).address,
+        FlashLoanLogic: (await hre.deployments.get('FlashLoanLogic')).address,
+        PoolLogic: (await hre.deployments.get('PoolLogic')).address,
+      },
+      log: false,
+    });
+
+    // Impersonate PoolAddressesProvider
+    await impersonateAccountsHardhat([addressesProvider.address]);
+    const addressesProviderSigner = await hre.ethers.getSigner(addressesProvider.address);
+
+    const poolProxyAddress = await addressesProvider.getPool();
+    const poolProxy = (await hre.ethers.getContractAt(
+      'InitializableImmutableAdminUpgradeabilityProxy',
+      poolProxyAddress,
+      addressesProviderSigner
+    )) as InitializableImmutableAdminUpgradeabilityProxy;
+
+    const oldPoolImpl = await poolProxy.callStatic.implementation();
+
+    // Upgrade the Pool
+    expect(
+      await addressesProvider.connect(poolAdmin.signer).setPoolImpl(NEW_POOL_IMPL_ARTIFACT.address)
+    )
+      .to.emit(addressesProvider, 'PoolUpdated')
+      .withArgs(oldPoolImpl, NEW_POOL_IMPL_ARTIFACT.address);
+
+    // Get the Pool instance
+    const mockPoolAddress = await addressesProvider.getPool();
+    const mockPool = await MockPoolInherited__factory.connect(
+      mockPoolAddress,
+      await getFirstSigner()
+    );
+
+    const amount = utils.parseUnits('10', 18);
+    const amountUSD = amount.div(BigNumber.from(10).pow(10));
+
+    await dai.connect(user0.signer)['mint(uint256)'](amount);
+    await dai.connect(user0.signer).approve(mockPool.address, MAX_UINT_AMOUNT);
+
+    expect(await mockPool.connect(user0.signer).supply(dai.address, amount, user0.address, 0));
+
+    const userReserveDataBefore = await mockPool.getUserAccountData(user0.address);
+
+    expect(userReserveDataBefore.totalCollateralBase).to.be.eq(amountUSD);
+    expect(userReserveDataBefore.totalDebtBase).to.be.eq(0);
+    expect(userReserveDataBefore.availableBorrowsBase).to.be.eq(amountUSD.mul(7500).div(10000));
+    expect(userReserveDataBefore.currentLiquidationThreshold).to.be.eq(8000);
+    expect(userReserveDataBefore.ltv).to.be.eq(7500);
+    expect(userReserveDataBefore.healthFactor).to.be.eq(MAX_UINT_AMOUNT);
+
+    expect(await mockPool.dropReserve(dai.address));
+
+    const userReserveDataAfter = await mockPool.getUserAccountData(user0.address);
+
+    expect(userReserveDataAfter.totalCollateralBase).to.be.eq(0);
+    expect(userReserveDataAfter.totalDebtBase).to.be.eq(0);
+    expect(userReserveDataAfter.availableBorrowsBase).to.be.eq(0);
+    expect(userReserveDataAfter.currentLiquidationThreshold).to.be.eq(0);
+    expect(userReserveDataAfter.ltv).to.be.eq(0);
+    expect(userReserveDataAfter.healthFactor).to.be.eq(MAX_UINT_AMOUNT);
   });
 
   it('Initialize fresh deployment with incorrect addresses provider (revert expected)', async () => {
@@ -61,6 +151,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
         EModeLogic: (await hre.deployments.get('EModeLogic')).address,
         BridgeLogic: (await hre.deployments.get('BridgeLogic')).address,
         FlashLoanLogic: (await hre.deployments.get('FlashLoanLogic')).address,
+        PoolLogic: (await hre.deployments.get('PoolLogic')).address,
       },
       log: false,
     });
@@ -68,7 +159,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
     const freshPool = Pool__factory.connect(NEW_POOL_IMPL_ARTIFACT.address, deployer.signer);
 
     await expect(freshPool.initialize(deployer.address)).to.be.revertedWith(
-      PC_INVALID_CONFIGURATION
+      INVALID_ADDRESSES_PROVIDER
     );
   });
 
@@ -96,7 +187,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
           config.variableDebtTokenAddress,
           ZERO_ADDRESS
         )
-    ).to.be.revertedWith(P_CALLER_NOT_POOL_CONFIGURATOR);
+    ).to.be.revertedWith(CALLER_NOT_POOL_CONFIGURATOR);
   });
 
   it('Call `setUserUseReserveAsCollateral()` to use an asset as collateral when the asset is already set as collateral', async () => {
@@ -106,8 +197,6 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       dai,
       users: [user0],
     } = testEnv;
-
-    const snapId = await evmSnapshot();
 
     const amount = utils.parseUnits('10', 18);
     await dai.connect(user0.signer)['mint(uint256)'](amount);
@@ -130,8 +219,6 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       user0.address
     );
     expect(userReserveDataAfter.usageAsCollateralEnabled).to.be.true;
-
-    await evmRevert(snapId);
   });
 
   it('Call `setUserUseReserveAsCollateral()` to disable an asset as collateral when the asset is already disabled as collateral', async () => {
@@ -141,8 +228,6 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       dai,
       users: [user0],
     } = testEnv;
-
-    const snapId = await evmSnapshot();
 
     const amount = utils.parseUnits('10', 18);
     await dai.connect(user0.signer)['mint(uint256)'](amount);
@@ -170,8 +255,6 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       user0.address
     );
     expect(userReserveDataAfter.usageAsCollateralEnabled).to.be.false;
-
-    await evmRevert(snapId);
   });
 
   it('Call `mintToTreasury()` on a pool with an inactive reserve', async () => {
@@ -191,7 +274,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       pool
         .connect(users[0].signer)
         .finalizeTransfer(dai.address, users[0].address, users[1].address, 0, 0, 0)
-    ).to.be.revertedWith(P_CALLER_MUST_BE_AN_ATOKEN);
+    ).to.be.revertedWith(CALLER_NOT_ATOKEN);
   });
 
   it('Tries to call `initReserve()` with an EOA as reserve (revert expected)', async () => {
@@ -206,7 +289,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       pool
         .connect(configSigner)
         .initReserve(users[0].address, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS)
-    ).to.be.revertedWith(P_NOT_CONTRACT);
+    ).to.be.revertedWith(NOT_CONTRACT);
   });
 
   it('PoolConfigurator updates the ReserveInterestRateStrategy address', async () => {
@@ -227,6 +310,41 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
     expect(config.interestRateStrategyAddress).to.be.eq(ZERO_ADDRESS);
   });
 
+  it('PoolConfigurator updates the ReserveInterestRateStrategy address for asset 0', async () => {
+    const { pool, deployer, dai, configurator } = testEnv;
+
+    // Impersonate PoolConfigurator
+    await topUpNonPayableWithEther(deployer.signer, [configurator.address], utils.parseEther('1'));
+    await impersonateAccountsHardhat([configurator.address]);
+    const configSigner = await hre.ethers.getSigner(configurator.address);
+
+    await expect(
+      pool.connect(configSigner).setReserveInterestRateStrategyAddress(ZERO_ADDRESS, ZERO_ADDRESS)
+    ).to.be.revertedWith(ZERO_ADDRESS_NOT_VALID);
+  });
+
+  it('PoolConfigurator updates the ReserveInterestRateStrategy address for an unlisted asset (revert expected)', async () => {
+    const { pool, deployer, dai, configurator, users } = testEnv;
+
+    // Impersonate PoolConfigurator
+    await topUpNonPayableWithEther(deployer.signer, [configurator.address], utils.parseEther('1'));
+    await impersonateAccountsHardhat([configurator.address]);
+    const configSigner = await hre.ethers.getSigner(configurator.address);
+
+    await expect(
+      pool
+        .connect(configSigner)
+        .setReserveInterestRateStrategyAddress(users[5].address, ZERO_ADDRESS)
+    ).to.be.revertedWith(ASSET_NOT_LISTED);
+  });
+
+  it('Activates the zero address reserve for borrowing via pool admin (expect revert)', async () => {
+    const { configurator } = testEnv;
+    await expect(configurator.setReserveBorrowing(ZERO_ADDRESS, true)).to.be.revertedWith(
+      ZERO_ADDRESS_NOT_VALID
+    );
+  });
+
   it('Initialize an already initialized reserve. ReserveLogic `init` where aTokenAddress != ZERO_ADDRESS (revert expected)', async () => {
     const { pool, dai, deployer, configurator } = testEnv;
 
@@ -245,7 +363,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
         config.variableDebtTokenAddress,
         ZERO_ADDRESS
       )
-    ).to.be.revertedWith(RL_RESERVE_ALREADY_INITIALIZED);
+    ).to.be.revertedWith(RESERVE_ALREADY_INITIALIZED);
   });
 
   it('Init reserve with ZERO_ADDRESS as aToken twice, to enter `_addReserveToList()` already added (revert expected)', async () => {
@@ -290,7 +408,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
           config.variableDebtTokenAddress,
           ZERO_ADDRESS
         )
-    ).to.be.revertedWith(RL_RESERVE_ALREADY_INITIALIZED);
+    ).to.be.revertedWith(RESERVE_ALREADY_ADDED);
     const poolListAfter = await pool.getReservesList();
     expect(poolListAfter.length).to.be.eq(poolListMid.length);
   });
@@ -317,16 +435,30 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
         EModeLogic: (await hre.deployments.get('EModeLogic')).address,
         BridgeLogic: (await hre.deployments.get('BridgeLogic')).address,
         FlashLoanLogic: (await hre.deployments.get('FlashLoanLogic')).address,
+        PoolLogic: (await hre.deployments.get('PoolLogic')).address,
       },
       log: false,
     });
+
+    // Impersonate PoolAddressesProvider
+    await impersonateAccountsHardhat([addressesProvider.address]);
+    const addressesProviderSigner = await hre.ethers.getSigner(addressesProvider.address);
+
+    const poolProxyAddress = await addressesProvider.getPool();
+    const poolProxy = (await hre.ethers.getContractAt(
+      'InitializableImmutableAdminUpgradeabilityProxy',
+      poolProxyAddress,
+      addressesProviderSigner
+    )) as InitializableImmutableAdminUpgradeabilityProxy;
+
+    const oldPoolImpl = await poolProxy.callStatic.implementation();
 
     // Upgrade the Pool
     expect(
       await addressesProvider.connect(poolAdmin.signer).setPoolImpl(NEW_POOL_IMPL_ARTIFACT.address)
     )
       .to.emit(addressesProvider, 'PoolUpdated')
-      .withArgs(NEW_POOL_IMPL_ARTIFACT.address);
+      .withArgs(oldPoolImpl, NEW_POOL_IMPL_ARTIFACT.address);
 
     // Get the Pool instance
     const mockPoolAddress = await addressesProvider.getPool();
@@ -352,7 +484,7 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
         config.variableDebtTokenAddress,
         ZERO_ADDRESS
       )
-    ).to.be.revertedWith(P_NO_MORE_RESERVES_ALLOWED);
+    ).to.be.revertedWith(NO_MORE_RESERVES_ALLOWED);
   });
 
   it('Add asset after multiple drops', async () => {
@@ -413,7 +545,6 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       underlyingAsset: string;
       treasury: string;
       incentivesController: string;
-      underlyingAssetName: string;
       aTokenName: string;
       aTokenSymbol: string;
       variableDebtTokenName: string;
@@ -431,7 +562,6 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
         underlyingAsset: mockToken.address,
         treasury: ZERO_ADDRESS,
         incentivesController: ZERO_ADDRESS,
-        underlyingAssetName: 'MOCK',
         aTokenName: 'AMOCK',
         aTokenSymbol: 'AMOCK',
         variableDebtTokenName: 'VMOCK',
@@ -483,16 +613,30 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
         EModeLogic: (await hre.deployments.get('EModeLogic')).address,
         BridgeLogic: (await hre.deployments.get('BridgeLogic')).address,
         FlashLoanLogic: (await hre.deployments.get('FlashLoanLogic')).address,
+        PoolLogic: (await hre.deployments.get('PoolLogic')).address,
       },
       log: false,
     });
+
+    // Impersonate PoolAddressesProvider
+    await impersonateAccountsHardhat([addressesProvider.address]);
+    const addressesProviderSigner = await hre.ethers.getSigner(addressesProvider.address);
+
+    const proxyAddress = await addressesProvider.getAddress(POOL_ID);
+    const proxy = (await hre.ethers.getContractAt(
+      'InitializableImmutableAdminUpgradeabilityProxy',
+      proxyAddress,
+      addressesProviderSigner
+    )) as InitializableImmutableAdminUpgradeabilityProxy;
+
+    const implementationAddress = await proxy.callStatic.implementation();
 
     // Upgrade the Pool
     expect(
       await addressesProvider.connect(poolAdmin.signer).setPoolImpl(NEW_POOL_IMPL_ARTIFACT.address)
     )
       .to.emit(addressesProvider, 'PoolUpdated')
-      .withArgs(NEW_POOL_IMPL_ARTIFACT.address);
+      .withArgs(implementationAddress, NEW_POOL_IMPL_ARTIFACT.address);
 
     // Get the Pool instance
     const mockPoolAddress = await addressesProvider.getPool();
@@ -557,5 +701,122 @@ makeSuite('Pool: Edge cases', (testEnv: TestEnv) => {
       )
     );
     expect((await pool.getReservesList()).length).to.be.eq(await pool.MAX_NUMBER_RESERVES());
+  });
+
+  it('Call `resetIsolationModeTotalDebt()` to reset isolationModeTotalDebt of an asset with non-zero debt ceiling', async () => {
+    const {
+      configurator,
+      pool,
+      helpersContract,
+      dai,
+      poolAdmin,
+      deployer,
+      users: [user0],
+    } = testEnv;
+
+    const debtCeiling = utils.parseUnits('10', 2);
+
+    expect(await helpersContract.getDebtCeiling(dai.address)).to.be.eq(0);
+
+    await configurator.connect(poolAdmin.signer).setDebtCeiling(dai.address, debtCeiling);
+
+    expect(await helpersContract.getDebtCeiling(dai.address)).to.be.eq(debtCeiling);
+
+    // Impersonate PoolConfigurator
+    await topUpNonPayableWithEther(deployer.signer, [configurator.address], utils.parseEther('1'));
+    await impersonateAccountsHardhat([configurator.address]);
+    const configSigner = await hre.ethers.getSigner(configurator.address);
+
+    await expect(
+      pool.connect(configSigner).resetIsolationModeTotalDebt(dai.address)
+    ).to.be.revertedWith(DEBT_CEILING_NOT_ZERO);
+  });
+
+  it('Tries to initialize a reserve with an AToken, StableDebtToken, and VariableDebt each deployed with the wrong pool address (revert expected)', async () => {
+    const { pool, deployer, configurator, addressesProvider } = testEnv;
+
+    const NEW_POOL_IMPL_ARTIFACT = await hre.deployments.deploy('DummyPool', {
+      contract: 'Pool',
+      from: deployer.address,
+      args: [addressesProvider.address],
+      libraries: await getPoolLibraries(),
+      log: false,
+    });
+
+    const aTokenImp = await new AToken__factory(await getFirstSigner()).deploy(pool.address);
+    const stableDebtTokenImp = await new StableDebtToken__factory(deployer.signer).deploy(
+      pool.address
+    );
+    const variableDebtTokenImp = await new VariableDebtToken__factory(deployer.signer).deploy(
+      pool.address
+    );
+
+    const aTokenWrongPool = await new AToken__factory(await getFirstSigner()).deploy(
+      NEW_POOL_IMPL_ARTIFACT.address
+    );
+    const stableDebtTokenWrongPool = await new StableDebtToken__factory(deployer.signer).deploy(
+      NEW_POOL_IMPL_ARTIFACT.address
+    );
+    const variableDebtTokenWrongPool = await new VariableDebtToken__factory(deployer.signer).deploy(
+      NEW_POOL_IMPL_ARTIFACT.address
+    );
+
+    const mockErc20 = await new ERC20__factory(deployer.signer).deploy('mock', 'MOCK');
+    const mockRateStrategy = await new MockReserveInterestRateStrategy__factory(
+      await getFirstSigner()
+    ).deploy(addressesProvider.address, 0, 0, 0, 0, 0, 0);
+
+    // Init the reserve
+    const initInputParams: {
+      aTokenImpl: string;
+      stableDebtTokenImpl: string;
+      variableDebtTokenImpl: string;
+      underlyingAssetDecimals: BigNumberish;
+      interestRateStrategyAddress: string;
+      underlyingAsset: string;
+      treasury: string;
+      incentivesController: string;
+      underlyingAssetName: string;
+      aTokenName: string;
+      aTokenSymbol: string;
+      variableDebtTokenName: string;
+      variableDebtTokenSymbol: string;
+      stableDebtTokenName: string;
+      stableDebtTokenSymbol: string;
+      params: string;
+    }[] = [
+      {
+        aTokenImpl: aTokenImp.address,
+        stableDebtTokenImpl: stableDebtTokenImp.address,
+        variableDebtTokenImpl: variableDebtTokenImp.address,
+        underlyingAssetDecimals: 18,
+        interestRateStrategyAddress: mockRateStrategy.address,
+        underlyingAsset: mockErc20.address,
+        treasury: ZERO_ADDRESS,
+        incentivesController: ZERO_ADDRESS,
+        underlyingAssetName: 'MOCK',
+        aTokenName: 'AMOCK',
+        aTokenSymbol: 'AMOCK',
+        variableDebtTokenName: 'VMOCK',
+        variableDebtTokenSymbol: 'VMOCK',
+        stableDebtTokenName: 'SMOCK',
+        stableDebtTokenSymbol: 'SMOCK',
+        params: '0x10',
+      },
+    ];
+
+    initInputParams[0].aTokenImpl = aTokenWrongPool.address;
+    await expect(configurator.initReserves(initInputParams)).to.be.reverted;
+
+    initInputParams[0].aTokenImpl = aTokenImp.address;
+    initInputParams[0].stableDebtTokenImpl = stableDebtTokenWrongPool.address;
+    await expect(configurator.initReserves(initInputParams)).to.be.reverted;
+
+    initInputParams[0].stableDebtTokenImpl = stableDebtTokenImp.address;
+    initInputParams[0].variableDebtTokenImpl = variableDebtTokenWrongPool.address;
+    await expect(configurator.initReserves(initInputParams)).to.be.reverted;
+
+    initInputParams[0].variableDebtTokenImpl = variableDebtTokenImp.address;
+    expect(await configurator.initReserves(initInputParams));
   });
 });

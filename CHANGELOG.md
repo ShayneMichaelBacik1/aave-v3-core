@@ -1,5 +1,320 @@
 # Changelog
 
+### [1.13.1](https://www.github.com/aave/aave-v3-core/compare/v1.13.0...v1.13.1) (2022-01-27)
+
+
+### Bug Fixes
+
+* Add virtual to getReserveNormalizedIncome function ([bc10fd2](https://www.github.com/aave/aave-v3-core/commit/bc10fd24750680e83e3d4abb54bf452998fa0e0d))
+* Mark all functions as virtual ([f6932b3](https://www.github.com/aave/aave-v3-core/commit/f6932b3d8c0055caf4ed1a191ec64676f4e68ad1))
+
+## [1.13.0](https://www.github.com/aave/aave-v3-core/compare/v1.12.0...v1.13.0) (2022-01-25)
+
+
+### Features
+
+* bump @aave/deploy-v3 ([430c9d3](https://www.github.com/aave/aave-v3-core/commit/430c9d3eebfafc6349ead5860016e25ff43fb547))
+
+## [1.12.0](https://www.github.com/aave/aave-v3-core/compare/v1.11.1...v1.12.0) (2022-01-25)
+
+
+### Features
+
+* bump @aave/deploy-v3 version ([85ec0fe](https://www.github.com/aave/aave-v3-core/commit/85ec0fe7cb45ae227b74ceb53c9088612034a3dc))
+
+
+### Bug Fixes
+
+* missing library at test, add updated deploy beta package ([67a5c80](https://www.github.com/aave/aave-v3-core/commit/67a5c80f04d0bcdd2dfa01c4b2d18a8a82dd222e))
+
+### [1.11.1](https://www.github.com/aave/aave-v3-core/compare/v1.11.0...v1.11.1) (2022-01-25)
+
+
+### Bug Fixes
+
+* Add natspec and handle naming ([1f5c8a9](https://www.github.com/aave/aave-v3-core/commit/1f5c8a9daeeb58e25049d315127c37b3b92cee74))
+* Adding literal params struct to initReserve ([43cced7](https://www.github.com/aave/aave-v3-core/commit/43cced7b155fa8cd714f5a088f5bf0b24ba6dc4e))
+* Change function modifier of MAX_NUMBER_RESERVES to pure ([dc34a67](https://www.github.com/aave/aave-v3-core/commit/dc34a67d390e66ce77622d0c8ce80edd572fe9c6))
+* Error library ([475eb1d](https://www.github.com/aave/aave-v3-core/commit/475eb1d73755d1ab8eb997feb0ebfa7f15f9893a))
+* fix comments ([b90b888](https://www.github.com/aave/aave-v3-core/commit/b90b888726beed2032b6c0ba84d797cf90aef2e5))
+* Move `dropReserve` logic to PoolLogic ([169d72c](https://www.github.com/aave/aave-v3-core/commit/169d72c58135b49b1236fd7fe9478adf1053efe9))
+* Move `initReserve` and `getReservesList` to PoolLogic ([b0ef5e4](https://www.github.com/aave/aave-v3-core/commit/b0ef5e4ed8ff4aa2d1a872f23899a1e81476b6ba))
+* Move availableLiqudity assignment in DefaultReserveInterestRateStrategy ([8c82d9d](https://www.github.com/aave/aave-v3-core/commit/8c82d9d87566ec2bacb705e2918ebb6e916d13b6))
+* Move comment up in validationlogic ([cbdaa30](https://www.github.com/aave/aave-v3-core/commit/cbdaa3080f43ea53bcc4afa9636735eff1deb175))
+* Move getters back to Pool, rename execute for functions called by pool ([106b617](https://www.github.com/aave/aave-v3-core/commit/106b6174c40086347de907f17dbf65f7535d69f3))
+* Naming Atoken to AToken ([0d50841](https://www.github.com/aave/aave-v3-core/commit/0d508413f9ddba280ff32db6898d3927f1219bda))
+* Remove unneeded comment ([1cb2324](https://www.github.com/aave/aave-v3-core/commit/1cb2324e11138c08d908d8cda7460f8598005cd1))
+* Remove unneeded comment ([4134d89](https://www.github.com/aave/aave-v3-core/commit/4134d89707e5dec310fcb1f6945d1692d7a9cf5c))
+* Remove unneeded fields in FlashLoanLocalVars struct ([9cb3a05](https://www.github.com/aave/aave-v3-core/commit/9cb3a05efdcb388ff7329480f26de8b3cc38d249))
+* Remove unneeded import of interface in Pool ([cc49160](https://www.github.com/aave/aave-v3-core/commit/cc4916049d394fbadf63568b3ddaef74b531d087))
+* Rename flashloanRepayment internal funciton to _flashloanRepayment ([3e18b8a](https://www.github.com/aave/aave-v3-core/commit/3e18b8ad2a80776f47f72c6c9bb5dfe620400e82))
+* Replace > 0 with != 0 ([7bc9926](https://www.github.com/aave/aave-v3-core/commit/7bc99264a76453f04ac7754595ec643317b0763e))
+* Simplify `executeRepay` ([6ab4a44](https://www.github.com/aave/aave-v3-core/commit/6ab4a44d601c71784a3af47d0d3f2c1d0f09b3f4))
+* update comments ([5f09cf9](https://www.github.com/aave/aave-v3-core/commit/5f09cf90792d1e8aa71168de4822f4f4b29da0a8))
+* Update deploy version ([a99e5b4](https://www.github.com/aave/aave-v3-core/commit/a99e5b458e4264ec1b583d7bbeafc12fde9a0ba5))
+* Update import order in PoolLogic ([40447cd](https://www.github.com/aave/aave-v3-core/commit/40447cd10c1925ce5daea74f0d201c571128cab6))
+* Update natspec ([f60a451](https://www.github.com/aave/aave-v3-core/commit/f60a451508f8c96a6c9dad55a2f5b43812feb721))
+* Update ordering in `FlashLoanRepaymentParams` ([93dd9ea](https://www.github.com/aave/aave-v3-core/commit/93dd9eadd3f8e0deef5b91ff36f038d14b89e8f6))
+
+## [1.11.0](https://www.github.com/aave/aave-v3-core/compare/v1.10.0...v1.11.0) (2022-01-23)
+
+
+### Features
+
+* Add rescueTokens functionality for Pool and AToken ([047edf8](https://www.github.com/aave/aave-v3-core/commit/047edf8a3cbb93d2d61f25b7954be9599ee96fd7))
+
+
+### Bug Fixes
+
+* Add getter for `_stableRateExcessOffset` ([3586ebb](https://www.github.com/aave/aave-v3-core/commit/3586ebbe2df893332c791ad9aa1bf049240d8c25))
+* Fix contract docstrings ([802a4bd](https://www.github.com/aave/aave-v3-core/commit/802a4bd428edeff446cf0fca2696f4f7ad2a97cd))
+* Fix imports order ([5d237a4](https://www.github.com/aave/aave-v3-core/commit/5d237a4e7e4259b28a50052ba106961a38911220))
+* Re-add the abstract modifier to base tokenization contracts ([52abb3f](https://www.github.com/aave/aave-v3-core/commit/52abb3f81a420ed233422d7caee87beda8e8f31e))
+* Remove blank space ([0c208fa](https://www.github.com/aave/aave-v3-core/commit/0c208fa3555c481667fa507ebfec1863a9bc39f9))
+* Remove rescueTokensFromAToken from Pool ([1a32301](https://www.github.com/aave/aave-v3-core/commit/1a32301881993888b880e077236de90493338cde))
+* Revert chainId renaming ([c4283d5](https://www.github.com/aave/aave-v3-core/commit/c4283d5fe062c4af5a6c37effa95df67efd7bd57))
+* Update comment ([94c4cfb](https://www.github.com/aave/aave-v3-core/commit/94c4cfbd95d45e772d6348bdcde7e212a5651ea6))
+* Update natspec and test ([39363e4](https://www.github.com/aave/aave-v3-core/commit/39363e4dd659899163619b62ef4fd2818a58f620))
+* Update natspec for `calculateInterestRates()` ([b22150b](https://www.github.com/aave/aave-v3-core/commit/b22150b8da8ba0a51845264e367b1935456b0ba7))
+* Update test name ([f6319b9](https://www.github.com/aave/aave-v3-core/commit/f6319b94d0db7a65ca7763115b29845f78dd5ae4))
+
+## [1.10.0](https://www.github.com/aave/aave-v3-core/compare/v1.9.0...v1.10.0) (2022-01-12)
+
+
+### Features
+
+* fix tests missing module. add deployments dir to gitignore ([4e2c5e8](https://www.github.com/aave/aave-v3-core/commit/4e2c5e8334060941741375053ee2da4e6de3ed98))
+* moved IncentivizedERC20 to the base folder ([1d5ed55](https://www.github.com/aave/aave-v3-core/commit/1d5ed55a613d52290263a87f863e423d054871f2))
+* refactored premium to protocol in updateFlashloanPremiumTotal ([6349f4b](https://www.github.com/aave/aave-v3-core/commit/6349f4bdc16665350f421d535ac1e8126ba6741e))
+* refactored premiumTotal in updateFlashloanPremiumToProtocol ([6b9f82c](https://www.github.com/aave/aave-v3-core/commit/6b9f82cb7cc267b932b92afce124e22cc22e523a))
+* update comment ([7d6ccfb](https://www.github.com/aave/aave-v3-core/commit/7d6ccfb1b2ee35e59177d5bd289bce1bbe167b14))
+
+
+### Bug Fixes
+
+* Add `userTotalDebt` variable and refactor fix ([f9794f1](https://www.github.com/aave/aave-v3-core/commit/f9794f1f2494b7a4d569b947c14c01d6d6f678f6))
+* Add amount cache in premium calc of executeFlashLoan ([785ba09](https://www.github.com/aave/aave-v3-core/commit/785ba097f930d35fe98fb52888bc43939a5ab356))
+* Add checks to turn off borrowing. ([f9ec711](https://www.github.com/aave/aave-v3-core/commit/f9ec71142186d2d3abc6d9d090920cb2abd03d20))
+* Add error message ([18ae21f](https://www.github.com/aave/aave-v3-core/commit/18ae21f2d345de64f5c7272c2023ac3c4d3eadb6))
+* add failing tests ([254a021](https://www.github.com/aave/aave-v3-core/commit/254a0212dfd083dad58aadd0f9081b503d1f1eee))
+* Add id to register and unregister events ([c196b71](https://www.github.com/aave/aave-v3-core/commit/c196b71241833db95205925c42ef29afc6f5b343))
+* Add indexed params to MarketIdSet event ([74062fc](https://www.github.com/aave/aave-v3-core/commit/74062fcfb3e735b3430723d2d8e15ac67347a502))
+* Add new event AddressSetAsProxy for imple address updates ([e4a15fb](https://www.github.com/aave/aave-v3-core/commit/e4a15fbecdfcaa2bc6a988b02af33ea43c99508d))
+* Add override modifier to underlyingAsset getter ([be4702c](https://www.github.com/aave/aave-v3-core/commit/be4702c0ca9e3f310bf25875f574162cb2f4f153))
+* Add percentage range check of liquidationFee in Configurator ([2d5330b](https://www.github.com/aave/aave-v3-core/commit/2d5330b37b248aa3f7e36713588eeff2c961cace))
+* Add range check for new reserve factor ([9863a47](https://www.github.com/aave/aave-v3-core/commit/9863a47eac0a84e8b64469f5a597759b8c542633))
+* add test for setting interest rate on unlistest asset ([09c04d2](https://www.github.com/aave/aave-v3-core/commit/09c04d241c087ea084f69701fca004adf282d165))
+* Add underlying getter in debtToken interfaces ([498b860](https://www.github.com/aave/aave-v3-core/commit/498b860f7ff0588b9e58b793376d3b132bbcf498))
+* add validation to set interest rates ([f623d9a](https://www.github.com/aave/aave-v3-core/commit/f623d9afe64035ef45d1f75b8693bb51e5a967cf))
+* Add visibility accessors to StableDebtToken state variables ([9faa22f](https://www.github.com/aave/aave-v3-core/commit/9faa22f91343cbfd2eac5d3ac917432692871f07))
+* Add visibility accessors to state variables of mocks ([b76dcb7](https://www.github.com/aave/aave-v3-core/commit/b76dcb731fc473aaef91141580ae4fd3d479deed))
+* address provider staticcall get implementation ([d2b1a32](https://www.github.com/aave/aave-v3-core/commit/d2b1a322b34ab7e055f5c60142db917367e629fe))
+* Change order of condition in validateHFAndLtv for gas saving ([34145bf](https://www.github.com/aave/aave-v3-core/commit/34145bf33225f6185a558a9eff965aac87803fb4))
+* check asset for zero address ([cdaa90c](https://www.github.com/aave/aave-v3-core/commit/cdaa90cb231e2799513d1bf20125dbf8de1f973b))
+* Clean tests ([d47b777](https://www.github.com/aave/aave-v3-core/commit/d47b777f9459ca8d55983096305cf78e4ccf59c6))
+* consistent get, set order ([ccb634a](https://www.github.com/aave/aave-v3-core/commit/ccb634ae26d12ecdb15ed4a50b906a089089ab0c))
+* Enhance reserves listing function in Pool ([2303871](https://www.github.com/aave/aave-v3-core/commit/2303871378a9ef5f123fc64756d30f6f9c2c2002))
+* failing test ([82758e9](https://www.github.com/aave/aave-v3-core/commit/82758e96c6ae97745cd76558139a67b88eae4fb7))
+* Fix ChainlinkAggregator intergration in AaveOracle ([44af5fe](https://www.github.com/aave/aave-v3-core/commit/44af5fe4b0b1378ca0767f821d443275b1bc6875))
+* Fix docstrings ([a6b1a02](https://www.github.com/aave/aave-v3-core/commit/a6b1a0286980814dc7ba8c7f4f326a6c4bda3d64))
+* Fix error from merge conflicts ([b0bea4c](https://www.github.com/aave/aave-v3-core/commit/b0bea4c8e4e4b62795f823d796a45418df786ed9))
+* Fix error in a revert message of test cases ([abaaa2c](https://www.github.com/aave/aave-v3-core/commit/abaaa2c71b191c5637f97f5c9d0d637b33141ef7))
+* Fix error in docstring ([a9aec4a](https://www.github.com/aave/aave-v3-core/commit/a9aec4a582875979e8d5271a67c45a72e8297b78))
+* Fix error in test case ([4fb8037](https://www.github.com/aave/aave-v3-core/commit/4fb80372bf68c6740b8d5dc143719d4efb0585c7))
+* Fix error in test from merge conflicts ([c7512ed](https://www.github.com/aave/aave-v3-core/commit/c7512ed0ea3d8b5932df461475292fa4b86ac14d))
+* Fix error name INVALID_RESERVE_FACTOR ([3785b38](https://www.github.com/aave/aave-v3-core/commit/3785b389db2588ff731e9eeab234fa96e498024d))
+* Fix errors constants in types.ts ([cdc6b26](https://www.github.com/aave/aave-v3-core/commit/cdc6b2663ac4798d46894a36473ff751223d811e))
+* Fix errors in constants from merge conflicts ([4831638](https://www.github.com/aave/aave-v3-core/commit/4831638687daf4567bf825e4ee0ff905ae6b426a))
+* Fix errors of merge conflicts ([b684547](https://www.github.com/aave/aave-v3-core/commit/b684547f2517397fe4dade7f30b050186f4d3d94))
+* Fix grammar spell typos in docstrings ([3868ead](https://www.github.com/aave/aave-v3-core/commit/3868eadd9c6c01fcfd407247e718737bfef9d608))
+* Fix MockAggregator code ([67d29f5](https://www.github.com/aave/aave-v3-core/commit/67d29f553f9ad7d53435aea0c40221372efa5bf2))
+* Fix test, fetching artifact from local typechain ([da07b87](https://www.github.com/aave/aave-v3-core/commit/da07b87b3073ade16312f30935b46459a3859082))
+* Fix typo in constant value ([71dc37c](https://www.github.com/aave/aave-v3-core/commit/71dc37cb70113aca1d9d0450a833786ac22d8237))
+* Fix typo in docstring ([70a4a51](https://www.github.com/aave/aave-v3-core/commit/70a4a512caad3e83a462eac79d84c9dec3060ef3))
+* Fix typos in docstrings ([51b95e0](https://www.github.com/aave/aave-v3-core/commit/51b95e0f1d26f61a16480e773fb65f3881fc663c))
+* Fix typos in docstrings ([80ad248](https://www.github.com/aave/aave-v3-core/commit/80ad248732c1b9377955b811b2f3b2515c22b6eb))
+* Fix typos in docstrings ([d3aa941](https://www.github.com/aave/aave-v3-core/commit/d3aa9413ae29010385f02d878ef4450f6fb8fd0e))
+* Improve readability of LiquidationLogic constants ([79896d5](https://www.github.com/aave/aave-v3-core/commit/79896d5292aeef177eedda5dabd287988d3b8c45))
+* improve set config readability ([a9dd99f](https://www.github.com/aave/aave-v3-core/commit/a9dd99fc69b960594261420152e0c5e4a979a0be))
+* interest-rate-strategy-range-checks ([adf2f4c](https://www.github.com/aave/aave-v3-core/commit/adf2f4c341c36c559c555897162f34991824a008))
+* Make flashloan premium to protocol a fraction of total premium ([d24c962](https://www.github.com/aave/aave-v3-core/commit/d24c96297013c122380b115a1ad5e8552a655097))
+* Mark proxyAddress as indexed in AddressSetAsProxy event ([bddabad](https://www.github.com/aave/aave-v3-core/commit/bddabadb50bfee7f4d2f050a05893f1edcd7d07f))
+* Move IChainlinkAggregator to dependencies and rename it to official name ([6099f84](https://www.github.com/aave/aave-v3-core/commit/6099f84733fbfe8c4738e0cd8c7b4637d8e8f0a9))
+* Move up validation of executeFlashloan ([4b64705](https://www.github.com/aave/aave-v3-core/commit/4b6470574c81d2da10937bf2922a9bed9cf762f6))
+* Naming of excess variables + introduction of constant for stable ratio ([37c2a63](https://www.github.com/aave/aave-v3-core/commit/37c2a63063b74bacf47a1f7059b1978f61b59750))
+* Remove .solhint.json ([972ec21](https://www.github.com/aave/aave-v3-core/commit/972ec21552400b2ca29beb9a7e4b4680f742f82b))
+* remove console logs ([2cd4dcc](https://www.github.com/aave/aave-v3-core/commit/2cd4dccdb0d6994dfbad60a4d3e18678dfd0fe96))
+* Remove external hacky getProxyImplementation function ([62a25c8](https://www.github.com/aave/aave-v3-core/commit/62a25c8f4d50a5ff38c960a00962d5ec220b94f8))
+* Remove getUserCurrentDebtMemory() helper function ([f2dc371](https://www.github.com/aave/aave-v3-core/commit/f2dc37148d13e7d217bcc3458c703fc98c7c90ca))
+* Remove not needed ProxyImplementationSet event ([002ebda](https://www.github.com/aave/aave-v3-core/commit/002ebdac6a6665529886149765f550c46bf4c589))
+* Remove redundant functions in WadRayMath lib ([5f0f035](https://www.github.com/aave/aave-v3-core/commit/5f0f0352efc69c19751b58b0dbcfc61370296992))
+* Remove references to DataTypes inside itself ([e5abd90](https://www.github.com/aave/aave-v3-core/commit/e5abd90f36594f0bce3d5303a7a870ca0f98afad))
+* Remove unneeded _getUnderlyingAsset() ([f2af600](https://www.github.com/aave/aave-v3-core/commit/f2af60004d4be0bb0ef6fd69070723f3f2527d69))
+* Remove unneeded constants for tests ([27130ac](https://www.github.com/aave/aave-v3-core/commit/27130ac8e9d61303f8723e24f442d662e957eb54))
+* Remove unneeded debug console ([4654be0](https://www.github.com/aave/aave-v3-core/commit/4654be065b270150456a1d7b06d217d15ef3d521))
+* Remove unneeded import in PoolStorage ([361cc39](https://www.github.com/aave/aave-v3-core/commit/361cc390f540a029df6fc587802581d2dc616fac))
+* Remove unneeded local variables ([a718549](https://www.github.com/aave/aave-v3-core/commit/a718549425f45cd6bc5bce52381fadefa80fa5ac))
+* Remove unneeded vars for validateHFAndLtv ([8b32e45](https://www.github.com/aave/aave-v3-core/commit/8b32e45867405e8792ae1c50f08d4eb18272c032))
+* Remove unused commented value ([9179670](https://www.github.com/aave/aave-v3-core/commit/917967002858662cd2164699f3852610dbc5ea97))
+* Removes not needed BytesLib library ([43db2f6](https://www.github.com/aave/aave-v3-core/commit/43db2f6479d8e10629fc5f8b213d4cbc9be430f5))
+* Rename last test helper with utilizationRate naming ([8acfc1a](https://www.github.com/aave/aave-v3-core/commit/8acfc1a40683bb6a051de7a4c7784baf24f1c209))
+* Rename utilizationRate for usageRation in contracts ([b9e46eb](https://www.github.com/aave/aave-v3-core/commit/b9e46ebd1ac1e9144cc0db70bd9bfcbcb70725e5))
+* Replace INCORRECT_ADDRESSES_PROVIDER for INVALID_ADDRESSES_PROVIDER ([be99a3c](https://www.github.com/aave/aave-v3-core/commit/be99a3ca8e150f749739838f7d058108ee07c56d))
+* Replace INVALID_PARAMS_EMODE_CATEGORY for INVALID_EMODE_CATEGORY_PARAMS ([e4e922b](https://www.github.com/aave/aave-v3-core/commit/e4e922b52ec9f4a3b57d746830b02d636c07c19d))
+* Replace INVALID_PARAMS_RESERVE for INVALID_RESERVE_PARAMS ([b6bb1cc](https://www.github.com/aave/aave-v3-core/commit/b6bb1ccbd3def686f90b32ae0e2685fbb304f696))
+* Replace NO_STABLE_RATE_LOAN_IN_RESERVE for NO_STABLE_RATE_DEBT ([43cf2a1](https://www.github.com/aave/aave-v3-core/commit/43cf2a1d3634282073a3a7671443434587eb5f28))
+* Replace NO_VARIABLE_RATE_LOAN_IN_RESERVE for NO_VARIABLE_RATE_DEBT ([df9658f](https://www.github.com/aave/aave-v3-core/commit/df9658f0e4bc663b7bc89e4f818f75a46a76f8b3))
+* Replace unneeded inline if with expect ([d0d24b8](https://www.github.com/aave/aave-v3-core/commit/d0d24b8474c9c9ca0a28131f3a9a7aed6f618db0))
+* Replace updateIsolationModeTotalDebt with a reset function ([35b4346](https://www.github.com/aave/aave-v3-core/commit/35b4346d5cf3f8054ce13ff8c69e369311f68f7e))
+* Revert renaming of ValidationLogic constants ([b6fc891](https://www.github.com/aave/aave-v3-core/commit/b6fc891b211698db7d2b0d615d28ace84f47b5f7))
+* Revert renaming of ValidationLogic constants ([52fc81a](https://www.github.com/aave/aave-v3-core/commit/52fc81ab447de19437e614535b027f409845fe8f))
+* Revert variable rename of usageRatio ([66f51fd](https://www.github.com/aave/aave-v3-core/commit/66f51fd4fa18c7ffa1e9f98fe72aa50c3db22ee1))
+* Simplify test using object destructuring ([98b7d73](https://www.github.com/aave/aave-v3-core/commit/98b7d73e2d766606148278ca94b3bb3ad44ea9eb))
+* Simplify updateImpl logic ([da14cbf](https://www.github.com/aave/aave-v3-core/commit/da14cbf3ddfc7afcf590a4df95f3c81c411f4097))
+* Update naming of EXCESS constants ([064a4d4](https://www.github.com/aave/aave-v3-core/commit/064a4d4131f53ba9e3be457ecf86bd902af769a6))
+
+
+### Miscellaneous Chores
+
+* release 1.10.0 ([734f83a](https://www.github.com/aave/aave-v3-core/commit/734f83abe0385760489185aa7fb7e773a41ab8b8))
+
+## [1.9.0](https://www.github.com/aave/aave-v3-core/compare/v1.8.0...v1.9.0) (2021-12-26)
+
+
+### Features
+
+* add event test ([d5fe4bb](https://www.github.com/aave/aave-v3-core/commit/d5fe4bb5afd7d5cc1dfe47ef0700c5dd4cfce5ea))
+* added additional functions to IAToken for EIP2612 ([df8ee61](https://www.github.com/aave/aave-v3-core/commit/df8ee614e460cf804fcaf1dcd8b9e5f1de0ef406))
+* added event to DelegationAwareAToken ([f5fd1b6](https://www.github.com/aave/aave-v3-core/commit/f5fd1b654d598ff9b2170dafcba6d28f88a391ae))
+* added indexed to the ICreditDelegation event ([0a3d365](https://www.github.com/aave/aave-v3-core/commit/0a3d36546683949a6dc8002db814827507847abc))
+* replaced SafeERC20 with GPv2SafeERC20 ([fe4ae41](https://www.github.com/aave/aave-v3-core/commit/fe4ae41aa2bb1583b430595decc4fddd6e60d137))
+
+
+### Bug Fixes
+
+* Add comment to BorrowLogic ([2ae309d](https://www.github.com/aave/aave-v3-core/commit/2ae309dbad85dedf1313a898a0bd558eeb447b64))
+* add else ([4bdbd7f](https://www.github.com/aave/aave-v3-core/commit/4bdbd7f56b4bdf7d3fdf421a7a2f21a0cdcb7b31))
+* Add explicit access level for variables ([8fb2e3c](https://www.github.com/aave/aave-v3-core/commit/8fb2e3c3102bc42aab9aaec8f77a1bea6463b6da))
+* Add mode to FlashLoan event ([956c809](https://www.github.com/aave/aave-v3-core/commit/956c809749a83d4fa79ffa1cfc8d7bd06348b442))
+* Add natspec to `executeLiquidationCall` ([9bb5289](https://www.github.com/aave/aave-v3-core/commit/9bb5289465ffaf0edc32c6f733f4c7eccecf2f5a))
+* Add repay with atoken ux issue ([b464cf5](https://www.github.com/aave/aave-v3-core/commit/b464cf55fe9dbfa918b3832f033e635595212247))
+* Avoid finalizeTransfer with 0 value transfer ([d6bf261](https://www.github.com/aave/aave-v3-core/commit/d6bf261f4fc08bfd8bd1a4b3e3b4ed140430a01a))
+* Cache result to not recompute for event ([b342d2f](https://www.github.com/aave/aave-v3-core/commit/b342d2f7f0f9fc05b5e7d9dc21e17183219b6d19))
+* Change  to  in Pool for V2 compatibility ([932c5a0](https://www.github.com/aave/aave-v3-core/commit/932c5a0dc02c22f4a9c20384a9912e2780fcbae8))
+* Clean cumulateToLiqIndex and add comments ([d6e90dc](https://www.github.com/aave/aave-v3-core/commit/d6e90dcd92e2f1536323648fb66c018a8811d97d))
+* Fix `income` -> `debt` in `getNormalizedDebt` natspec. ([9e6b183](https://www.github.com/aave/aave-v3-core/commit/9e6b1831f3f814fca46e19d6761bda9a7cd07f66))
+* Fix differences between IPool and Pool ([8beefda](https://www.github.com/aave/aave-v3-core/commit/8beefda3d19c3814196052575332342a5b23be08))
+* Fix docstrings ([93c2d95](https://www.github.com/aave/aave-v3-core/commit/93c2d954937172dedd3a794a0e58627b7aaa1dc0))
+* Fix docstrings ([c55bb04](https://www.github.com/aave/aave-v3-core/commit/c55bb04725b4a1ed6c87a0f5092669d55e306afc))
+* Fix typo ([df40063](https://www.github.com/aave/aave-v3-core/commit/df400636ac915f19b642a830b8ba86969837ac2d))
+* Fix typo in setReserveFreeze function name ([da72c39](https://www.github.com/aave/aave-v3-core/commit/da72c391f8ddef9a200e5b9203c1cfbd29986ca6))
+* Fix variable name of event in ReserveLogic ([40b9bb8](https://www.github.com/aave/aave-v3-core/commit/40b9bb814e5b89e19b50cb73a274646901dd2a00))
+* Gas optimization UserConfiguration ([af00927](https://www.github.com/aave/aave-v3-core/commit/af009272000e82aa2af78ec871373a57e2f1dbf5))
+* Handle code style issues ([af3743b](https://www.github.com/aave/aave-v3-core/commit/af3743b108ebeca4f7185a79b6ce6d7ca988075c))
+* Improve code readability of ReserveLogic ([ae1476d](https://www.github.com/aave/aave-v3-core/commit/ae1476daf53cf24262fdd9628e0fa4df9bf15a47))
+* Improve readability of initial values of variables ([592b21d](https://www.github.com/aave/aave-v3-core/commit/592b21d831b0dc2a6e3e998701ea4e3a4b13c401))
+* Include 100% as valid premiums ([c6b3347](https://www.github.com/aave/aave-v3-core/commit/c6b33472ed4f2ba6ebcf5a0b1aa3826c066aa7bd))
+* Make test engine not stop at first failure ([84eaf29](https://www.github.com/aave/aave-v3-core/commit/84eaf29afeffb720194d95b6ed86cb91273bf763))
+* Move up event in IVariableDebtToken ([f536538](https://www.github.com/aave/aave-v3-core/commit/f536538e6b7d6f97b24ff353c32e301c1b11d1ec))
+* move up require ([d47afa2](https://www.github.com/aave/aave-v3-core/commit/d47afa2da264bb4ec81957ebdc787052ce7d0079))
+* Re-add `getUserCurrentDebtMemory()` ([7742985](https://www.github.com/aave/aave-v3-core/commit/7742985319be5df5a11d6740a712c2017f64dcf6))
+* Refactor variable calc in StableDebtToken ([4ed69b4](https://www.github.com/aave/aave-v3-core/commit/4ed69b4a8ad17cfc8defe19e7049db88f1cd0cf8))
+* Remove case, created separate issue ([0082fd8](https://www.github.com/aave/aave-v3-core/commit/0082fd82eacfe61f32efce03fe99f464a3992eec))
+* remove IAaveIncentivesController casting ([9805add](https://www.github.com/aave/aave-v3-core/commit/9805add3405965badb9803ab68c8b7f73b0989ab))
+* Remove redundant casting for block.timestamp ([941539f](https://www.github.com/aave/aave-v3-core/commit/941539f0a3b72598a0ff556ba2b5889cfe0f08ff))
+* Remove redundant unneeded variable ([703782c](https://www.github.com/aave/aave-v3-core/commit/703782cb7c1d353239bec219b474f3ee30b0c063))
+* Remove unneeded `delegator` param from delegationWithSig typehash ([dcf7c36](https://www.github.com/aave/aave-v3-core/commit/dcf7c36dc2df66283f29c72738872c1e3e992a43))
+* Remove unneeded imports in contracts ([48f9e89](https://www.github.com/aave/aave-v3-core/commit/48f9e89ee21fe0637e970fd1bbcd662c74ab5147))
+* Remove unneededv variable in cumulateToLiqIndex ([75e7fdc](https://www.github.com/aave/aave-v3-core/commit/75e7fdcd4cf9b5112bb22fb3c4e6b03b33db4907))
+* removed invalid imports ([659b82c](https://www.github.com/aave/aave-v3-core/commit/659b82cf93d3a032a9ad746a7f0fdf02f06ecd60))
+* rename admin variable ([5199283](https://www.github.com/aave/aave-v3-core/commit/5199283c5ac4e93260ad416920fb28aa8896ce5a))
+* Replace `rateMode` with `interestRateMode` and precise dataype ([806f161](https://www.github.com/aave/aave-v3-core/commit/806f16172bb718366417ef9e519b0fe5b9d04595))
+* Replace factor with multiplier for clarity ([085ad0c](https://www.github.com/aave/aave-v3-core/commit/085ad0c8df62ac60a25f74c722fcd822c1f09107))
+* Replace HALF_PERCENT with HALF_PERCENTAGE_FACTOR ([4fb45ec](https://www.github.com/aave/aave-v3-core/commit/4fb45ec34d4d86f75b94e2d284942ac69d62e8db))
+* Replace Helper.toUint128 with OZ SafeCast ([3916735](https://www.github.com/aave/aave-v3-core/commit/391673546fbf7de6199822b60a49787498a26978))
+* Rever simplification of cumulateToLiqIndex due to precision loss ([585c9c4](https://www.github.com/aave/aave-v3-core/commit/585c9c41525a8df7c6b13aa37fa07c860a03bd27))
+* set config map to zero on init ([ea40ee1](https://www.github.com/aave/aave-v3-core/commit/ea40ee1608b7ffe60ae03154403b77fdc20933de))
+* Simplify condition in SupplyLogic ([6487f29](https://www.github.com/aave/aave-v3-core/commit/6487f29892706390cae8fd46b10de24ca67281db))
+* Simplify cumulateToLiqIndex in ReserveLogic ([53a95c8](https://www.github.com/aave/aave-v3-core/commit/53a95c809764a3acdb6f6e5d1845aea0d7de5a27))
+* swap name ([ebd3622](https://www.github.com/aave/aave-v3-core/commit/ebd3622b28b18d8d7adbcd5f285a3c13a180db8f))
+* Typo in liquidation-emode.spec.ts ([97e0acc](https://www.github.com/aave/aave-v3-core/commit/97e0acc5515641ef936cbb3284b4e2f9811a27f6))
+* update admin to internal ([7d19d29](https://www.github.com/aave/aave-v3-core/commit/7d19d295c66c5e19c58cec87082e1905116dc196))
+* Update test with new delegationWithSig typehash ([fea83f3](https://www.github.com/aave/aave-v3-core/commit/fea83f39d433ff1e624a39878686ddf661eb66fe))
+* Use `next` prefix for isolation mode total debt ([5ffeecd](https://www.github.com/aave/aave-v3-core/commit/5ffeecdd6e376ff341d6f633e36be53c2cbc43b1))
+
+## [1.8.0](https://www.github.com/aave/aave-v3-core/compare/v1.7.0...v1.8.0) (2021-12-16)
+
+
+### Features
+
+* added natspec comments, changed function param names to uniform with the other functions ([dda5bde](https://www.github.com/aave/aave-v3-core/commit/dda5bde0b901df2fdadd41cba332652f20dc3796))
+* clarify mint and burn comment in interface ([03041ef](https://www.github.com/aave/aave-v3-core/commit/03041ef2189dbd5ed5344df09a6d3acf5caff0b6))
+* refactored setReserveBorrowing, setReserveStableRateBorrowing, fixed tests ([6749233](https://www.github.com/aave/aave-v3-core/commit/6749233881b49e7f1d93b991ce1b8f850382c5b7))
+
+
+### Bug Fixes
+
+* Add 0 division check to wadDiv and rayDiv. ([ea80f22](https://www.github.com/aave/aave-v3-core/commit/ea80f22e6aeb51d0eab96785113aa5b802346e9d))
+* Add better natspec for ConfiguratorLogic ([5cdfcdf](https://www.github.com/aave/aave-v3-core/commit/5cdfcdfe67ffbaccaf565385ad13588f99865145))
+* Add better natspec for EModeLogic ([816d566](https://www.github.com/aave/aave-v3-core/commit/816d566224b4df116016e60a7e841cb0c5826949))
+* Add comments about BaseCurrency to IPriceOracleGetter ([60ff953](https://www.github.com/aave/aave-v3-core/commit/60ff953ba9b4bdacb9a2acf5bbfcefd69e87e84d))
+* Add docstrings for SequencerOracle ([9557272](https://www.github.com/aave/aave-v3-core/commit/955727288ef62e0a1e59ffdd3babb0b211a70a40))
+* Add docstrings to PriceOracleSentinel ([368c77f](https://www.github.com/aave/aave-v3-core/commit/368c77f15e644e00e53a73f92294cf52a17d91b7))
+* Add event emission to natspec ([ec28a38](https://www.github.com/aave/aave-v3-core/commit/ec28a384fad9d42cc308c5a894358f81f11034bd))
+* Add explicit error message for LTV == 0 before division. ([d8d1694](https://www.github.com/aave/aave-v3-core/commit/d8d1694deb12a24f0638fb5990951f0daa574731))
+* Add functions docs of `IPoolAddressesProvider` ([36a543b](https://www.github.com/aave/aave-v3-core/commit/36a543b3856a075d197e108717f4aa020f06fa1c))
+* Add IAaveOracle interface ([ed03e30](https://www.github.com/aave/aave-v3-core/commit/ed03e3097aaae33c202d042bd6bb0f1d9a03eb26))
+* Add literal syntax to setEModeCategory ([4ab27c3](https://www.github.com/aave/aave-v3-core/commit/4ab27c3a78f882175032417019073b6574e28d91))
+* Add missing docstrings of the IACLManager ([84bcffc](https://www.github.com/aave/aave-v3-core/commit/84bcffce40ecfec73b43ce0f4263b60629fa9d87))
+* Add test and zero div check to percentageDiv ([d914c9d](https://www.github.com/aave/aave-v3-core/commit/d914c9dc4502e1f166d0c1cc26c7c95628d34db6))
+* Added `first` to natspec `_getFirstAssetAsCollateralId()` ([1b6a1df](https://www.github.com/aave/aave-v3-core/commit/1b6a1dfb80b6a254753af01fcfa60b9d8a891d62))
+* additional check in isUsingAsCollateralOne() to avoid revert if collateralData == 0 ([49638cb](https://www.github.com/aave/aave-v3-core/commit/49638cb0874050443281c6cb30959891b6d32268))
+* Change access control to setGracePeriod ([d9c2630](https://www.github.com/aave/aave-v3-core/commit/d9c26306b4f573422584453437c8f8d1b777f484))
+* Clean code style of FlashLoan mocks ([6fe84b6](https://www.github.com/aave/aave-v3-core/commit/6fe84b6bd385195e5d5cac299a1458e33489f643))
+* Clean code style of mocks ([60a03e3](https://www.github.com/aave/aave-v3-core/commit/60a03e38157ed8c64fab8efd073d72e183f17a7b))
+* Consolidate BorrowingOnReserve events into 1 ([110c5d0](https://www.github.com/aave/aave-v3-core/commit/110c5d01bd321be8f101202c5ca3c38822928701))
+* Enhance clarity of WadRayMath constants ([b7244c1](https://www.github.com/aave/aave-v3-core/commit/b7244c181f3649e94a6c8a085c1d3156556883f7))
+* Fix and clean halfWad and halfRay values ([5f5dff4](https://www.github.com/aave/aave-v3-core/commit/5f5dff43a826209bc22a8a4562dbbb40c782e06a))
+* Fix BridgeLogic natspec ([71be75e](https://www.github.com/aave/aave-v3-core/commit/71be75eb0362c214b4a28292455d9faaf473d24a))
+* Fix PoolAddresesProvider docstrings ([30d757f](https://www.github.com/aave/aave-v3-core/commit/30d757f45d4eec26285df513e9b914aa4964985d))
+* Fix typo in `IAaveOracle` natspec ([1f02c09](https://www.github.com/aave/aave-v3-core/commit/1f02c090b7922f9a08ad6e5bc29d350b2736060b))
+* Fix typo in `LiquidationLogic` natspec ([3729466](https://www.github.com/aave/aave-v3-core/commit/37294662bbb6a8ff77c0c48ad3d0d09e554ade8f))
+* Fix typos in docstrings ([167da26](https://www.github.com/aave/aave-v3-core/commit/167da26e4db23a9ca6b30940d633d4472a1348e4))
+* Fix typos in natspec docs ([e29d46f](https://www.github.com/aave/aave-v3-core/commit/e29d46f9ff816f085140a70fcb41d4785a1c85fd))
+* Format public immutable variable name with MACRO case ([c90b040](https://www.github.com/aave/aave-v3-core/commit/c90b04093f770e32febb3fb88e26a199c0b2316b))
+* increased the data size of id and i to uint16 ([3d7fc2b](https://www.github.com/aave/aave-v3-core/commit/3d7fc2bf8ff001d203e64bde826f3f77da552cea))
+* Make `_pool` public of AToken and DebtToken ([014da25](https://www.github.com/aave/aave-v3-core/commit/014da25b4f13ea9c83b468099e71b5eceff2f98c))
+* Make addressesProvider of AaveOracle public ([69b3eca](https://www.github.com/aave/aave-v3-core/commit/69b3ecacc7e953c43a32764b4bcaad0da1c822cb))
+* Make gracePeriod and sequencerOracle configurables ([3c6352f](https://www.github.com/aave/aave-v3-core/commit/3c6352fa3907407e46c1df6d9338cd638d974ece))
+* Make Pool `_addressesProvider` public ([762d79e](https://www.github.com/aave/aave-v3-core/commit/762d79e033be02a0a67dbf47447688de1cd08167))
+* Merge conflict in stable-debt-token.spec.ts ([78a6198](https://www.github.com/aave/aave-v3-core/commit/78a61982db5d58e0ee6a5ee0b3bcf2173a264a07))
+* Minor merge conflict ([0df5e80](https://www.github.com/aave/aave-v3-core/commit/0df5e80a4a7e983231b7cb23be458f53b3f572b6))
+* Move the optimization after the operation condition ([c6a785f](https://www.github.com/aave/aave-v3-core/commit/c6a785f2cd1f93f147a9c5a799648b61f4381541))
+* naming consistency and stable debt event fix ([7f17123](https://www.github.com/aave/aave-v3-core/commit/7f17123ee4c59157a1a6f02746dd9790e4420db8))
+* Optimize setUseReserveAsCollateral whenthere is no state change ([55445f2](https://www.github.com/aave/aave-v3-core/commit/55445f21ea27d8248ecad60a3230d28c48c9581a))
+* remove console.log ([e279cda](https://www.github.com/aave/aave-v3-core/commit/e279cda79676b2c6d92a4ccbb737d71dc062fee9))
+* Remove duplicated code in LiquidationLogic ([2189ba4](https://www.github.com/aave/aave-v3-core/commit/2189ba4446e843645ed3b2add8153881088bfbb4))
+* Remove unneeded comments ([9ec0ec4](https://www.github.com/aave/aave-v3-core/commit/9ec0ec4b79a29b060743bbdd700559d6d7159469))
+* Remove unneeded contract file ([6f480ec](https://www.github.com/aave/aave-v3-core/commit/6f480ecb2eb0325aabab25e6b902e83d22f77755))
+* remove unused variable ([87fc0bb](https://www.github.com/aave/aave-v3-core/commit/87fc0bb492df1ef82b71a765f48b9913024d2875))
+* Rename PoolConfigurator setter events ([53b40ce](https://www.github.com/aave/aave-v3-core/commit/53b40ce81d0b539be6b415ed75d1e419137b9fbc))
+* Rename setter functions names ([449f42d](https://www.github.com/aave/aave-v3-core/commit/449f42d91fd0c08342412f08e3e3b1f3638ba953))
+* set package-lock.json ([299d2f9](https://www.github.com/aave/aave-v3-core/commit/299d2f9ea3d62190004caca0dafa243089a262b3))
+* Typo in flashloanlogic natspec ([4e36f6f](https://www.github.com/aave/aave-v3-core/commit/4e36f6f2d58411c9bc51f59058a80349a171a3de))
+* Unify reserveCount and maxReserve to uint16 ([b6e2b35](https://www.github.com/aave/aave-v3-core/commit/b6e2b351f15cad9de45dcd3cf1e6a0686b64aad9))
+* update .npmrc ([9cfe79c](https://www.github.com/aave/aave-v3-core/commit/9cfe79c3752959c7a22fcfb07b74d4c960c8ccf2))
+* Update comments in validation-logic.spec.ts ([3b5c039](https://www.github.com/aave/aave-v3-core/commit/3b5c03973446c817860401ef255bcb5455d2676b))
+* Update executeRepay to compute interest correctly for repaying with aTokens ([abf0e0c](https://www.github.com/aave/aave-v3-core/commit/abf0e0cf6da5bd9f6d91c505fda3580e4467c87e))
+* Update function naming ([594b929](https://www.github.com/aave/aave-v3-core/commit/594b92985fb62831e8b4ee72a6ad4dfd5730eb05))
+* Update natspec docs for FlashLoanLogic ([4b02b3e](https://www.github.com/aave/aave-v3-core/commit/4b02b3e6cf2f4f1c3f7f583652b3b9ff3a41b94e))
+* Update variable packing of `ReserveData` ([7765624](https://www.github.com/aave/aave-v3-core/commit/77656242fd9e61c2080f938e7514d719c0015a91))
+* Update wording of token update functions in ConfiguratorLogic ([2dd1551](https://www.github.com/aave/aave-v3-core/commit/2dd15513c1930d739aff0b14e2c94770b0e38004))
+* use @aave/deploy-v3@1.7.1 library and load typechain locally instead of deploy-v3, to fix unsynced artifacts ([6904746](https://www.github.com/aave/aave-v3-core/commit/690474641fef8efa0dd95f645cb3e9b8d4eab3e5))
+* Use `checkNoSuppliers` instead of `CheckNoDepositors` ([88aff43](https://www.github.com/aave/aave-v3-core/commit/88aff43cebb660689c6fcdd84560a5ebe9f98911))
+* use already calculated value instead of re-calculating ([c0743f9](https://www.github.com/aave/aave-v3-core/commit/c0743f95890eb6e6c0ee873775b81aa952b55753))
+* Use cache to get `aTokenAddress` in bridge logic ([e41ec39](https://www.github.com/aave/aave-v3-core/commit/e41ec395182296ee1226ed4b57914abdd3321fa0))
+* Use literal syntax for struct params ([7baf196](https://www.github.com/aave/aave-v3-core/commit/7baf196bf51ad60a09d477e325537fdffe6f8465))
+
 ## [1.7.0](https://www.github.com/aave/aave-v3-core/compare/v1.6.0...v1.7.0) (2021-12-01)
 
 

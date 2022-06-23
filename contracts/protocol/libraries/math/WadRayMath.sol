@@ -1,45 +1,23 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.10;
-
-import {Errors} from '../helpers/Errors.sol';
 
 /**
  * @title WadRayMath library
  * @author Aave
  * @notice Provides functions to perform calculations with Wad and Ray units
- * @dev Provides mul and div function for wads (decimal numbers with 18 digits precision) and rays (decimals with 27 digits)
+ * @dev Provides mul and div function for wads (decimal numbers with 18 digits of precision) and rays (decimal numbers
+ * with 27 digits of precision)
+ * @dev Operations are rounded. If a value is >=.5, will be rounded up, otherwise rounded down.
  **/
 library WadRayMath {
   // HALF_WAD and HALF_RAY expressed with extended notation as constant with operations are not supported in Yul assembly
   uint256 internal constant WAD = 1e18;
   uint256 internal constant HALF_WAD = 0.5e18;
 
-  uint256 public constant RAY = 1e27;
+  uint256 internal constant RAY = 1e27;
   uint256 internal constant HALF_RAY = 0.5e27;
 
   uint256 internal constant WAD_RAY_RATIO = 1e9;
-
-  /**
-   * @return One wad, 1e18
-   **/
-
-  function wad() internal pure returns (uint256) {
-    return WAD;
-  }
-
-  /**
-   * @return Half ray, 1e27/2
-   **/
-  function halfRay() internal pure returns (uint256) {
-    return HALF_RAY;
-  }
-
-  /**
-   * @return Half ray, 1e18/2
-   **/
-  function halfWad() internal pure returns (uint256) {
-    return HALF_WAD;
-  }
 
   /**
    * @dev Multiplies two wad, rounding half up to the nearest wad
@@ -120,13 +98,12 @@ library WadRayMath {
    * @return b = a converted to wad, rounded half up to the nearest wad
    **/
   function rayToWad(uint256 a) internal pure returns (uint256 b) {
-    // to avoid overflow, a + HALF_RAY_RATIO >= HALF_RAY_RATIO
     assembly {
-      b := add(a, div(WAD_RAY_RATIO, 2))
-      if lt(b, div(WAD_RAY_RATIO, 2)) {
-        revert(0, 0)
+      b := div(a, WAD_RAY_RATIO)
+      let remainder := mod(a, WAD_RAY_RATIO)
+      if iszero(lt(remainder, div(WAD_RAY_RATIO, 2))) {
+        b := add(b, 1)
       }
-      b := div(b, WAD_RAY_RATIO)
     }
   }
 
